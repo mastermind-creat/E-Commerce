@@ -2,7 +2,7 @@
 <footer class="bg-blue-600 text-white mt-10">
     <div class="container mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
-            <h4 class="font-bold mb-2">Aunt’s Store</h4>
+            <h4 class="font-bold mb-2">Springs Ministries Store</h4>
             <p>Your one-stop shop for clothes, bags, and jewelry.</p>
         </div>
         <div>
@@ -21,7 +21,7 @@
         </div>
     </div>
     <div class="bg-blue-700 text-center py-2 text-sm">
-        &copy; <?= date('Y') ?> Beauty Store. All rights reserved.
+        &copy; <?= date('Y') ?> Springs Ministries Store. All rights reserved.
     </div>
 </footer>
 </body>

@@ -43,23 +43,21 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                     <!-- Category list -->
                     <nav id="categoryPanel" class="p-2 space-y-1 max-h-[65vh] overflow-y-auto">
                         <?php
-            // categories + first-level subcategory example
-            try {
-              $cats = $pdo->query("SELECT id, name, slug FROM categories ORDER BY name ASC LIMIT 50")->fetchAll(PDO::FETCH_ASSOC);
-            } catch (Exception $e) {
-              $cats = [];
-            }
+                        try {
+                            $cats = $pdo->query("SELECT id, name, slug FROM categories ORDER BY name ASC LIMIT 50")->fetchAll(PDO::FETCH_ASSOC);
+                        } catch (Exception $e) {
+                            $cats = [];
+                        }
 
-            foreach ($cats as $c):
-              // placeholder: you can load subcategories from db if you have them
-            ?>
+                        foreach ($cats as $c):
+                        ?>
                         <div class="group">
-                            <a href="/shop.php?category=<?= urlencode($c['id']) ?>"
+                            <a href="/shop.php?category=<?= urlencode($c['slug']) ?>"
                                 class="flex items-center justify-between px-3 py-2 rounded hover:bg-gray-50 transition">
                                 <div class="flex items-center gap-3">
                                     <div
                                         class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-600">
-                                        <?= strtoupper(substr($c['name'],0,1)) ?>
+                                        <?= strtoupper(substr($c['name'], 0, 1)) ?>
                                     </div>
                                     <span class="text-sm text-gray-700"><?= htmlspecialchars($c['name']) ?></span>
                                 </div>
@@ -86,14 +84,44 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                     <div id="heroTrack"
                         class="flex transition-transform duration-700 ease-in-out will-change-transform">
                         <?php
-            $heroImages = [
-              '/public/assets/hero1.jpg',
-              '/public/assets/hero2.jpg',
-              '/public/assets/hero3.jpg'
-            ];
-            foreach ($heroImages as $i => $src): ?>
+                        try {
+                            $hero_stmt = $pdo->query("SELECT * FROM hero_slides WHERE active = 1 ORDER BY order_num ASC, id ASC");
+                            $hero_slides = $hero_stmt->fetchAll(PDO::FETCH_ASSOC);
+                        } catch (Exception $e) {
+                            $hero_slides = [];
+                        }
+
+                        if (!empty($hero_slides)):
+                            foreach ($hero_slides as $i => $slide):
+                        ?>
                         <div class="w-full flex-shrink-0 relative">
-                            <img src="<?= htmlspecialchars($src) ?>" alt="Hero <?= $i+1 ?>"
+                            <img src="/image.php?path=<?= urlencode(ltrim($slide['image_path'], '/')) ?>"
+                                alt="<?= htmlspecialchars($slide['title']) ?>" class="w-full h-64 sm:h-96 object-cover">
+                            <div
+                                class="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40 flex items-center">
+                                <div class="max-w-3xl px-6 py-8 sm:px-10">
+                                    <h2
+                                        class="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg">
+                                        <?= htmlspecialchars($slide['title']) ?>
+                                    </h2>
+                                    <p class="mt-3 text-white/90 max-w-xl">
+                                        <?= htmlspecialchars($slide['description']) ?></p>
+                                    <div class="mt-6 flex gap-3">
+                                        <?php if (!empty($slide['button_text']) && !empty($slide['button_link'])): ?>
+                                        <a href="<?= htmlspecialchars($slide['button_link']) ?>"
+                                            class="inline-block bg-pink-400 hover:bg-pink-500 text-gray-900 px-5 py-3 rounded-full font-semibold shadow">
+                                            <?= htmlspecialchars($slide['button_text']) ?>
+                                        </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach;
+                        else: ?>
+                        <!-- Fallback if no slides in DB -->
+                        <div class="w-full flex-shrink-0 relative">
+                            <img src="/public/assets/hero1.jpg" alt="Default Hero"
                                 class="w-full h-64 sm:h-96 object-cover">
                             <div
                                 class="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40 flex items-center">
@@ -107,13 +135,11 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                                         <a href="/shop.php"
                                             class="inline-block bg-pink-400 hover:bg-pink-500 text-gray-900 px-5 py-3 rounded-full font-semibold shadow">Shop
                                             Now</a>
-                                        <a href="/collections.php"
-                                            class="inline-block border border-white/30 text-white px-4 py-3 rounded-full hover:bg-white/10">Collections</a>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
 
                     <!-- controls -->
@@ -124,7 +150,8 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
 
                     <!-- indicators -->
                     <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                        <?php for($i=0;$i<count($heroImages);$i++): ?>
+                        <?php $slideCount = count($hero_slides); ?>
+                        <?php for($i=0; $i < $slideCount; $i++): ?>
                         <button class="w-3 h-3 rounded-full bg-white/60" data-ind="<?= $i ?>"
                             aria-label="Go to slide <?= $i+1 ?>"></button>
                         <?php endfor; ?>
@@ -133,6 +160,33 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
 
                 <!-- Promo tiles (below hero) -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <?php
+                    try {
+                        $promo_stmt = $pdo->query("SELECT * FROM promo_tiles WHERE active = 1 ORDER BY order_num ASC LIMIT 3");
+                        $promo_tiles = $promo_stmt->fetchAll(PDO::FETCH_ASSOC);
+                    } catch (Exception $e) {
+                        $promo_tiles = [];
+                    }
+
+                    if (!empty($promo_tiles)):
+                        foreach ($promo_tiles as $tile):
+                    ?>
+                    <a href="<?= htmlspecialchars($tile['link']) ?>"
+                        class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4">
+                        <?php if (!empty($tile['image_path'])): ?>
+                        <img src="/image.php?path=<?= urlencode(ltrim($tile['image_path'], '/')) ?>"
+                            alt="<?= htmlspecialchars($tile['title']) ?>" class="w-20 h-20 object-cover rounded">
+                        <?php endif; ?>
+                        <div>
+                            <h5 class="font-semibold"><?= htmlspecialchars($tile['title']) ?></h5>
+                            <p class="text-sm text-gray-500"><?= htmlspecialchars($tile['description']) ?></p>
+                            <?php if (!empty($tile['price_text'])): ?>
+                            <div class="mt-2 text-blue-500 font-bold"><?= htmlspecialchars($tile['price_text']) ?></div>
+                            <?php endif; ?>
+                        </div>
+                    </a>
+                    <?php endforeach;
+                    else: ?>
                     <a href="/shop.php?promo=brand"
                         class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl p-6 flex items-center gap-4 hover:scale-[1.01] transform transition">
                         <div>
@@ -163,6 +217,7 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                             <div class="mt-2 text-blue-500 font-bold">From KSh 999</div>
                         </div>
                     </a>
+                    <?php endif; ?>
                 </div>
 
             </section>
@@ -177,26 +232,25 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
 
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-6">
                 <?php
-        try {
-            $stmt = $pdo->query("
-                SELECT id, name, price, stock
-                FROM products
-                WHERE status = 'active'
-                ORDER BY created_at DESC
-                LIMIT 20
-            ");
-            $prods = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Exception $e) {
-            $prods = [];
-        }
+                try {
+                    $stmt = $pdo->query("
+                        SELECT id, name, price, stock
+                        FROM products
+                        WHERE status = 'active'
+                        ORDER BY created_at DESC
+                        LIMIT 20
+                    ");
+                    $prods = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (Exception $e) {
+                    $prods = [];
+                }
 
-        foreach ($prods as $prod):
-            // fetch first product image (same as shop section)
-            $imgStmt = $pdo->prepare("SELECT image_url FROM product_images WHERE product_id = ? ORDER BY id ASC LIMIT 1");
-            $imgStmt->execute([$prod['id']]);
-            $imgFile = $imgStmt->fetchColumn();
-            $thumb = $imgFile ? "assets/products/" . $imgFile : "assets/images/placeholder.png";
-        ?>
+                foreach ($prods as $prod):
+                    $imgStmt = $pdo->prepare("SELECT image_url FROM product_images WHERE product_id = ? ORDER BY id ASC LIMIT 1");
+                    $imgStmt->execute([$prod['id']]);
+                    $imgFile = $imgStmt->fetchColumn();
+                    $thumb = $imgFile ? "assets/products/" . $imgFile : "assets/images/placeholder.png";
+                ?>
                 <article
                     class="bg-white rounded-2xl p-4 shadow hover:shadow-xl transform hover:-translate-y-2 transition">
                     <a href="/product.php?id=<?= $prod['id'] ?>" class="block relative">
@@ -207,9 +261,9 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                     <div class="mt-3">
                         <h4 class="text-sm font-medium truncate"><?= htmlspecialchars($prod['name']) ?></h4>
                         <div class="mt-2 flex items-center justify-between">
-                            <div class="text-lg font-bold text-blue-600">KSh <?= number_format($prod['price'],2) ?>
+                            <div class="text-lg font-bold text-blue-600">KSh <?= number_format($prod['price'], 2) ?>
                             </div>
-                            <a href="product.php?id=<?= $prod['id'] ?>"
+                            <a href="/product.php?id=<?= $prod['id'] ?>"
                                 class="ml-2 px-3 py-1 bg-pink-500 text-white rounded-lg text-xs hover:bg-pink-600">View</a>
                         </div>
                     </div>
@@ -222,8 +276,6 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
             </div>
         </section>
 
-
-
         <!-- ===== Testimonials slider ===== -->
         <section class="mt-12">
             <div class="bg-white rounded-2xl shadow p-6">
@@ -231,28 +283,28 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                 <div id="testimonials" class="relative overflow-hidden">
                     <div class="flex transition-transform duration-600 ease-in-out" data-test-track>
                         <?php
-                try {
-                    $stmt = $pdo->query("
-                        SELECT r.comment, r.rating, u.name AS user_name
-                        FROM reviews r
-                        JOIN users u ON r.user_id = u.id
-                        ORDER BY r.created_at DESC
-                        LIMIT 5
-                    ");
-                    $reviews = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                } catch (Exception $e) {
-                    $reviews = [];
-                }
+                        try {
+                            $stmt = $pdo->query("
+                                SELECT r.comment, r.rating, u.name AS user_name
+                                FROM reviews r
+                                JOIN users u ON r.user_id = u.id
+                                ORDER BY r.created_at DESC
+                                LIMIT 5
+                            ");
+                            $reviews = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        } catch (Exception $e) {
+                            $reviews = [];
+                        }
 
-                if ($reviews):
-                    foreach ($reviews as $rev): ?>
+                        if ($reviews):
+                            foreach ($reviews as $rev):
+                        ?>
                         <div class="min-w-full p-4">
-                            <blockquote class="text-gray-700 italic">
-                                "<?= htmlspecialchars($rev['comment']) ?>"
+                            <blockquote class="text-gray-700 italic">"<?= htmlspecialchars($rev['comment']) ?>"
                             </blockquote>
                             <div class="mt-3 text-sm text-gray-500">— <?= htmlspecialchars($rev['user_name']) ?></div>
                             <div class="flex mt-2">
-                                <?php for($i=0; $i<5; $i++): ?>
+                                <?php for($i = 0; $i < 5; $i++): ?>
                                 <?php if ($i < $rev['rating']): ?>
                                 <!-- Filled Star -->
                                 <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
@@ -270,18 +322,13 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                             </div>
                         </div>
                         <?php endforeach;
-                else: ?>
-                        <div class="min-w-full p-4 text-center text-gray-500">
-                            No customer reviews yet.
-                        </div>
+                        else: ?>
+                        <div class="min-w-full p-4 text-center text-gray-500">No customer reviews yet.</div>
                         <?php endif; ?>
                     </div>
                 </div>
             </div>
         </section>
-
-
-
 
         <!-- Newsletter CTA -->
         <section class="mt-10">

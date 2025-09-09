@@ -33,7 +33,7 @@ $userRole = $isLoggedIn ? ($_SESSION['user_role'] ?? null) : null; // 'admin' or
         <div class="container mx-auto px-4 py-4 flex justify-between items-center">
             <!-- Logo -->
             <a href="index.php" class="text-2xl font-bold text-blue-600 flex items-center gap-2">
-                <i data-feather="shopping-bag"></i> Beauty Store
+                <i data-feather="shopping-bag"></i> Springs Ministries Store
             </a>
 
             <!-- Desktop Nav -->
