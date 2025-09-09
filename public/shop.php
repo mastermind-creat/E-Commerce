@@ -8,7 +8,6 @@ require_once __DIR__ . '/../includes/db.php';
 // Fetch categories
 $categories = $pdo->query("SELECT * FROM categories ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
-
 // Category icons (extendable)
 $categoryIcons = [
     "Clothes" => "👕",
@@ -34,13 +33,13 @@ $categoryIcons = [
 
         <?php foreach ($categories as $cat): ?>
         <?php
-      $products = $pdo->prepare("SELECT * FROM products WHERE category_id = ? AND status='active'");
-      $products->execute([$cat['id']]);
-      $products = $products->fetchAll(PDO::FETCH_ASSOC);
-      if (!$products) continue;
+        $products = $pdo->prepare("SELECT * FROM products WHERE category_id = ? AND status='active'");
+        $products->execute([$cat['id']]);
+        $products = $products->fetchAll(PDO::FETCH_ASSOC);
+        if (!$products) continue;
 
-      $icon = $categoryIcons[$cat['name']] ?? $categoryIcons["Default"];
-      ?>
+        $icon = $categoryIcons[$cat['name']] ?? $categoryIcons["Default"];
+        ?>
 
         <section class="mb-12">
             <!-- Category Title -->
@@ -53,11 +52,11 @@ $categoryIcons = [
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 <?php foreach ($products as $prod): ?>
                 <?php
-            $img = $pdo->prepare("SELECT image_url FROM product_images WHERE product_id = ? ORDER BY is_primary DESC LIMIT 1");
-            $img->execute([$prod['id']]);
-            $imgUrl = $img->fetchColumn() ?: 'assets/images/placeholder.png';
-
-            ?>
+                $img = $pdo->prepare("SELECT image_url FROM product_images WHERE product_id = ? ORDER BY id ASC LIMIT 1");
+                $img->execute([$prod['id']]);
+                $imgFile = $img->fetchColumn();
+                $imgUrl = $imgFile ? "assets/products/" . $imgFile : "assets/images/placeholder.png";
+                ?>
                 <div
                     class="bg-white rounded-xl shadow hover:shadow-lg transition transform hover:-translate-y-1 p-4 flex flex-col">
                     <img src="<?= htmlspecialchars($imgUrl) ?>" alt="<?= htmlspecialchars($prod['name']) ?>"

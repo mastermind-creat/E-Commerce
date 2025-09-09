@@ -34,10 +34,11 @@ $variants = $variantsStmt->fetchAll();
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <title><?= htmlspecialchars($p['name']); ?> | Shop</title>
 </head>
 
-<body class="bg-gray-50">
+<body class="bg-gray-50 text-gray-900">
     <?php include __DIR__ . '/../includes/header.php'; ?>
 
     <div class="max-w-6xl mx-auto px-4 py-8">
@@ -48,31 +49,41 @@ $variants = $variantsStmt->fetchAll();
                 <?php 
                 $mainImage = $images[0]['image_url'] ?? 'assets/images/placeholder.png'; 
                 ?>
-                <img id="mainImage" src="<?= htmlspecialchars($mainImage) ?>" alt="<?= htmlspecialchars($p['name']) ?>"
-                    class="w-full h-96 object-cover rounded-lg shadow">
+                <<img id="mainImage"
+                    src="assets/products/<?= htmlspecialchars($images[0]['image_url'] ?? 'placeholder.png') ?>"
+                    alt="<?= htmlspecialchars($p['name']) ?>" class="w-full h-96 object-cover rounded-2xl shadow-lg">
 
-                <?php if (count($images) > 1): ?>
-                <div class="flex gap-3 mt-4 overflow-x-auto">
-                    <?php foreach ($images as $img): ?>
-                    <img src="<?= htmlspecialchars($img['image_url']) ?>"
-                        class="w-20 h-20 object-cover rounded border cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
-                        onclick="document.getElementById('mainImage').src=this.src" alt="thumbnail">
-                    <?php endforeach; ?>
-                </div>
-                <?php endif; ?>
+
+                    <?php if (count($images) > 1): ?>
+                    <div class="flex gap-3 mt-4 overflow-x-auto">
+                        <?php foreach ($images as $img): ?>
+                        <img src="assets/products/<?= htmlspecialchars($img['image_url']) ?>"
+                            class="w-20 h-20 object-cover rounded-lg border cursor-pointer hover:ring-2 hover:ring-blue-500 transition"
+                            onclick="document.getElementById('mainImage').src=this.src" alt="thumbnail">
+
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
             </div>
 
             <!-- Product Details -->
             <div>
                 <h1 class="text-3xl font-bold text-gray-900"><?= htmlspecialchars($p['name']); ?></h1>
-                <p class="text-2xl text-blue-600 font-semibold mt-2">KSh <?= number_format($p['price'],2); ?></p>
+                <p class="text-2xl text-blue-600 font-semibold mt-2 flex items-center gap-2">
+                    <i class='bx bx-purchase-tag'></i>
+                    KSh <?= number_format($p['price'],2); ?>
+                </p>
 
-                <div class="mt-2">
+                <div class="mt-2 flex items-center gap-2">
                     <?php if ((int)$p['stock'] > 0): ?>
-                    <p id="stockText" class="text-sm text-green-600">In stock: <span
-                            id="stockCount"><?= (int)$p['stock']; ?></span></p>
+                    <p id="stockText" class="text-sm text-green-600 flex items-center gap-1">
+                        <i class='bx bx-check-circle'></i> In stock:
+                        <span id="stockCount"><?= (int)$p['stock']; ?></span>
+                    </p>
                     <?php else: ?>
-                    <p id="stockText" class="text-sm text-red-600">Out of stock</p>
+                    <p id="stockText" class="text-sm text-red-600 flex items-center gap-1">
+                        <i class='bx bx-x-circle'></i> Out of stock
+                    </p>
                     <?php endif; ?>
                 </div>
 
@@ -82,14 +93,15 @@ $variants = $variantsStmt->fetchAll();
                     <!-- Variants -->
                     <?php if (!empty($variants)): ?>
                     <div>
-                        <label for="variantSelect" class="block font-semibold mb-1">Variant</label>
-                        <select id="variantSelect" name="variant_id" class="w-full border rounded-lg p-2">
+                        <label for="variantSelect" class="block font-semibold mb-1">Choose Variant</label>
+                        <select id="variantSelect" name="variant_id"
+                            class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500">
                             <?php foreach ($variants as $v):
                                     $label = trim(($v['color'] ?? '') . ' ' . ($v['size'] ?? ''));
                                     $stockAttr = (int)$v['stock'];
                                 ?>
                             <option value="<?= (int)$v['id']; ?>" data-stock="<?= $stockAttr; ?>"
-                                <?= $stockAttr<=0 ? 'data-out="1"' : ''; ?>>
+                                <?= $stockAttr<=0 ? 'disabled' : ''; ?>>
                                 <?= htmlspecialchars($label ?: 'Option'); ?> — Stock: <?= $stockAttr; ?>
                             </option>
                             <?php endforeach; ?>
@@ -101,25 +113,29 @@ $variants = $variantsStmt->fetchAll();
                     <div>
                         <label class="block font-semibold mb-1">Quantity</label>
                         <div class="flex items-center gap-2">
-                            <button type="button" id="qtyDecrease" class="px-3 py-1 bg-gray-200 rounded">−</button>
+                            <button type="button" id="qtyDecrease"
+                                class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">−</button>
                             <input id="qtyInput" name="quantity" type="number"
                                 class="w-20 border rounded text-center p-1" value="1" min="1" step="1">
-                            <button type="button" id="qtyIncrease" class="px-3 py-1 bg-gray-200 rounded">+</button>
+                            <button type="button" id="qtyIncrease"
+                                class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">+</button>
                             <div id="qtyError" class="text-sm text-red-600 ml-3 hidden"></div>
                         </div>
                     </div>
 
                     <div>
                         <button type="submit" id="addToCartBtn"
-                            class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 rounded-lg shadow">
-                            Add to Cart
+                            class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 rounded-lg shadow flex items-center justify-center gap-2">
+                            <i class='bx bx-cart-add text-xl'></i> Add to Cart
                         </button>
                     </div>
                 </form>
 
                 <!-- Description -->
                 <div class="mt-8">
-                    <h2 class="text-lg font-semibold mb-2">Product Description</h2>
+                    <h2 class="text-lg font-semibold mb-2 flex items-center gap-2">
+                        <i class='bx bx-info-circle'></i> Product Description
+                    </h2>
                     <p class="text-gray-700 leading-relaxed"><?= nl2br(htmlspecialchars($p['description'])); ?></p>
                 </div>
             </div>

@@ -5,19 +5,24 @@ session_start();
 $message = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name  = trim($_POST['name']);
-    $email = trim($_POST['email']);
-    $pass  = $_POST['password'];
+    $name     = trim($_POST['name']);
+    $email    = trim($_POST['email']);
+    $pass     = $_POST['password'];
+    $phone    = trim($_POST['phone']);
+    $address  = trim($_POST['shipping_address']);
 
-    if ($name && $email && $pass) {
+    if ($name && $email && $pass && $phone && $address) {
         $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->execute([$email]);
         if ($stmt->fetch()) {
             $message = "Email already registered.";
         } else {
             $hash = password_hash($pass, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)");
-            $stmt->execute([$name, $email, $hash]);
+            $stmt = $pdo->prepare("
+                INSERT INTO users (name, email, password, phone, address, role, created_at)
+                VALUES (?, ?, ?, ?, ?, 'customer', NOW())
+            ");
+            $stmt->execute([$name, $email, $hash, $phone, $address]);
             $_SESSION['user_id'] = $pdo->lastInsertId();
             $_SESSION['user_name'] = $name;
 
@@ -49,6 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form method="post" class="space-y-4">
             <input type="text" name="name" placeholder="Full Name" class="w-full border p-2 rounded" required>
             <input type="email" name="email" placeholder="Email Address" class="w-full border p-2 rounded" required>
+            <input type="text" name="phone" placeholder="Phone Number" class="w-full border p-2 rounded" required>
+            <textarea name="shipping_address" placeholder="Shipping Address" class="w-full border p-2 rounded"
+                required></textarea>
             <input type="password" name="password" placeholder="Password" class="w-full border p-2 rounded" required>
             <button class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 rounded">Register</button>
         </form>

@@ -11,7 +11,7 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
 <main class="bg-gray-50 text-gray-800">
 
     <!-- ===== Top promo bar (optional) ===== -->
-    <div class="hidden md:flex justify-center bg-red-600 text-white px-4 py-2 text-sm">
+    <div class="hidden md:flex justify-center bg-blue-600 text-white px-4 py-2 text-sm">
         <div class="max-w-7xl w-full flex justify-between items-center px-4">
             <div>🔥 Get KSh 100 off — limited time offer!</div>
             <div class="space-x-4">
@@ -31,7 +31,7 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                 <div class="bg-white rounded-2xl shadow sticky top-6 overflow-hidden">
                     <div class="flex items-center justify-between px-4 py-3 border-b">
                         <div class="flex items-center gap-3">
-                            <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M4 6h16M4 12h16M4 18h16" />
                             </svg>
@@ -105,7 +105,7 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                                         finds at friendly prices.</p>
                                     <div class="mt-6 flex gap-3">
                                         <a href="/shop.php"
-                                            class="inline-block bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-5 py-3 rounded-full font-semibold shadow">Shop
+                                            class="inline-block bg-pink-400 hover:bg-pink-500 text-gray-900 px-5 py-3 rounded-full font-semibold shadow">Shop
                                             Now</a>
                                         <a href="/collections.php"
                                             class="inline-block border border-white/30 text-white px-4 py-3 rounded-full hover:bg-white/10">Collections</a>
@@ -134,7 +134,7 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                 <!-- Promo tiles (below hero) -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                     <a href="/shop.php?promo=brand"
-                        class="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl p-6 flex items-center gap-4 hover:scale-[1.01] transform transition">
+                        class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl p-6 flex items-center gap-4 hover:scale-[1.01] transform transition">
                         <div>
                             <h4 class="font-bold text-lg">Super Brand Sale</h4>
                             <p class="text-sm mt-1">Huge savings across categories</p>
@@ -142,23 +142,25 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                         <div class="ml-auto text-white bg-white/10 px-3 py-2 rounded">Shop</div>
                     </a>
 
-                    <a href="/shop.php?category=phones"
+                    <a href="/shop.php?category=handbags"
                         class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4">
-                        <img src="/public/assets/promo-phone.jpg" alt="Phones" class="w-20 h-20 object-cover rounded">
+                        <img src="/public/assets/promo-handbag.jpg" alt="Handbags"
+                            class="w-20 h-20 object-cover rounded">
                         <div>
-                            <h5 class="font-semibold">Phones & Accessories</h5>
-                            <p class="text-sm text-gray-500">Top deals from leading brands</p>
-                            <div class="mt-2 text-yellow-500 font-bold">From KSh 3,499</div>
+                            <h5 class="font-semibold">Handbags & Small Bags</h5>
+                            <p class="text-sm text-gray-500">Stylish and versatile options</p>
+                            <div class="mt-2 text-blue-500 font-bold">From KSh 1,499</div>
                         </div>
                     </a>
 
-                    <a href="/shop.php?category=home"
+                    <a href="/shop.php?category=clothing"
                         class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4">
-                        <img src="/public/assets/promo-home.jpg" alt="Home" class="w-20 h-20 object-cover rounded">
+                        <img src="/public/assets/promo-clothing.jpg" alt="Clothing"
+                            class="w-20 h-20 object-cover rounded">
                         <div>
-                            <h5 class="font-semibold">Home & Living</h5>
-                            <p class="text-sm text-gray-500">Made for comfort & style</p>
-                            <div class="mt-2 text-yellow-500 font-bold">From KSh 1,299</div>
+                            <h5 class="font-semibold">Men's T-Shirts & Jewelry</h5>
+                            <p class="text-sm text-gray-500">Quality apparel and accessories</p>
+                            <div class="mt-2 text-blue-500 font-bold">From KSh 999</div>
                         </div>
                     </a>
                 </div>
@@ -175,31 +177,31 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
 
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-6">
                 <?php
-        // Fetch featured/active products with primary image
         try {
-          $stmt = $pdo->query("
-            SELECT p.id,p.name,p.price,p.stock, pi.image_url
-            FROM products p
-            LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = 1
-            WHERE p.status = 'active'
-            ORDER BY p.created_at DESC
-            LIMIT 20
-          ");
-          $prods = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Exception $e) {ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-          $prods = [];
+            $stmt = $pdo->query("
+                SELECT id, name, price, stock
+                FROM products
+                WHERE status = 'active'
+                ORDER BY created_at DESC
+                LIMIT 20
+            ");
+            $prods = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            $prods = [];
         }
 
         foreach ($prods as $prod):
-          $thumb = $prod['image_url'] ? '/public/assets/products/' . $prod['image_url'] : '/public/assets/placeholder.png';
+            // fetch first product image (same as shop section)
+            $imgStmt = $pdo->prepare("SELECT image_url FROM product_images WHERE product_id = ? ORDER BY id ASC LIMIT 1");
+            $imgStmt->execute([$prod['id']]);
+            $imgFile = $imgStmt->fetchColumn();
+            $thumb = $imgFile ? "assets/products/" . $imgFile : "assets/images/placeholder.png";
         ?>
                 <article
                     class="bg-white rounded-2xl p-4 shadow hover:shadow-xl transform hover:-translate-y-2 transition">
                     <a href="/product.php?id=<?= $prod['id'] ?>" class="block relative">
-                        <img data-src="<?= htmlspecialchars($thumb) ?>" alt="<?= htmlspecialchars($prod['name']) ?>"
-                            class="w-full h-40 object-cover rounded-lg lazy">
+                        <img src="<?= htmlspecialchars($thumb) ?>" alt="<?= htmlspecialchars($prod['name']) ?>"
+                            class="w-full h-40 object-cover rounded-lg">
                     </a>
 
                     <div class="mt-3">
@@ -208,8 +210,7 @@ error_reporting(E_ALL);
                             <div class="text-lg font-bold text-blue-600">KSh <?= number_format($prod['price'],2) ?>
                             </div>
                             <a href="product.php?id=<?= $prod['id'] ?>"
-                                class="ml-2 px-3 py-1 bg-yellow-500 text-white rounded-lg text-xs hover:bg-yellow-600">View</a>
-
+                                class="ml-2 px-3 py-1 bg-pink-500 text-white rounded-lg text-xs hover:bg-pink-600">View</a>
                         </div>
                     </div>
                 </article>
@@ -221,31 +222,66 @@ error_reporting(E_ALL);
             </div>
         </section>
 
+
+
         <!-- ===== Testimonials slider ===== -->
         <section class="mt-12">
             <div class="bg-white rounded-2xl shadow p-6">
                 <h3 class="text-xl font-bold mb-4">What customers say</h3>
                 <div id="testimonials" class="relative overflow-hidden">
-                    <div class="flex transition-transform duration-600" data-test-track>
+                    <div class="flex transition-transform duration-600 ease-in-out" data-test-track>
+                        <?php
+                try {
+                    $stmt = $pdo->query("
+                        SELECT r.comment, r.rating, u.name AS user_name
+                        FROM reviews r
+                        JOIN users u ON r.user_id = u.id
+                        ORDER BY r.created_at DESC
+                        LIMIT 5
+                    ");
+                    $reviews = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (Exception $e) {
+                    $reviews = [];
+                }
+
+                if ($reviews):
+                    foreach ($reviews as $rev): ?>
                         <div class="min-w-full p-4">
-                            <blockquote class="text-gray-700 italic">"Lovely service and fast delivery — great quality
-                                items!"</blockquote>
-                            <div class="mt-3 text-sm text-gray-500">— Jane M.</div>
-                        </div>
-                        <div class="min-w-full p-4">
-                            <blockquote class="text-gray-700 italic">"The bags I bought are perfect. Excellent customer
-                                support."</blockquote>
-                            <div class="mt-3 text-sm text-gray-500">— Tom B.</div>
-                        </div>
-                        <div class="min-w-full p-4">
-                            <blockquote class="text-gray-700 italic">"Easy checkout and reasonable shipping."
+                            <blockquote class="text-gray-700 italic">
+                                "<?= htmlspecialchars($rev['comment']) ?>"
                             </blockquote>
-                            <div class="mt-3 text-sm text-gray-500">— Aisha K.</div>
+                            <div class="mt-3 text-sm text-gray-500">— <?= htmlspecialchars($rev['user_name']) ?></div>
+                            <div class="flex mt-2">
+                                <?php for($i=0; $i<5; $i++): ?>
+                                <?php if ($i < $rev['rating']): ?>
+                                <!-- Filled Star -->
+                                <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path
+                                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.967a1 1 0 00.95.69h4.176c.969 0 1.371 1.24.588 1.81l-3.384 2.46a1 1 0 00-.364 1.118l1.287 3.966c.3.922-.755 1.688-1.54 1.118l-3.384-2.459a1 1 0 00-1.175 0l-3.384 2.46c-.785.57-1.84-.197-1.54-1.118l1.287-3.967a1 1 0 00-.364-1.118L2.05 9.394c-.783-.57-.38-1.81.588-1.81h4.176a1 1 0 00.95-.69l1.285-3.967z" />
+                                </svg>
+                                <?php else: ?>
+                                <!-- Empty Star -->
+                                <svg class="w-5 h-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                                    <path
+                                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.967a1 1 0 00.95.69h4.176c.969 0 1.371 1.24.588 1.81l-3.384 2.46a1 1 0 00-.364 1.118l1.287 3.966c.3.922-.755 1.688-1.54 1.118l-3.384-2.459a1 1 0 00-1.175 0l-3.384 2.46c-.785.57-1.84-.197-1.54-1.118l1.287-3.967a1 1 0 00-.364-1.118L2.05 9.394c-.783-.57-.38-1.81.588-1.81h4.176a1 1 0 00.95-.69l1.285-3.967z" />
+                                </svg>
+                                <?php endif; ?>
+                                <?php endfor; ?>
+                            </div>
                         </div>
+                        <?php endforeach;
+                else: ?>
+                        <div class="min-w-full p-4 text-center text-gray-500">
+                            No customer reviews yet.
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </section>
+
+
+
 
         <!-- Newsletter CTA -->
         <section class="mt-10">
@@ -258,7 +294,7 @@ error_reporting(E_ALL);
                 <form action="/subscribe.php" method="post" class="flex gap-2 w-full md:w-auto">
                     <input type="email" name="email" placeholder="Enter your email" required
                         class="px-4 py-2 rounded-lg text-gray-800 w-full md:w-80">
-                    <button class="px-4 py-2 bg-yellow-400 text-gray-900 rounded-lg font-semibold">Subscribe</button>
+                    <button class="px-4 py-2 bg-pink-400 text-gray-900 rounded-lg font-semibold">Subscribe</button>
                 </form>
             </div>
         </section>

@@ -21,7 +21,7 @@
         </div>
     </div>
     <div class="bg-blue-700 text-center py-2 text-sm">
-        &copy; <?= date('Y') ?> Aunt’s Store. All rights reserved.
+        &copy; <?= date('Y') ?> Beauty Store. All rights reserved.
     </div>
 </footer>
 </body>

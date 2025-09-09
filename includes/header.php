@@ -14,9 +14,7 @@ $cartCount = array_sum(array_column($_SESSION['cart'], 'quantity')) ?? 0;
 // Is user logged in
 $isLoggedIn = isset($_SESSION['user_id']);
 $userName = $isLoggedIn ? $_SESSION['user_name'] : null;
-$userRole = $_SESSION['user_role'] ?? null; // admin or customer
-
-$userRole = $isLoggedIn ? $_SESSION['user_role'] : null; // 'admin' or 'user'
+$userRole = $isLoggedIn ? ($_SESSION['user_role'] ?? null) : null; // 'admin' or 'user'
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -24,7 +22,7 @@ $userRole = $isLoggedIn ? $_SESSION['user_role'] : null; // 'admin' or 'user'
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aunt’s Online Store</title>
+    <title>Beauty Online Store</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/feather-icons"></script>
 </head>
@@ -35,7 +33,7 @@ $userRole = $isLoggedIn ? $_SESSION['user_role'] : null; // 'admin' or 'user'
         <div class="container mx-auto px-4 py-4 flex justify-between items-center">
             <!-- Logo -->
             <a href="index.php" class="text-2xl font-bold text-blue-600 flex items-center gap-2">
-                <i data-feather="shopping-bag"></i> Aunt’s Store
+                <i data-feather="shopping-bag"></i> Beauty Store
             </a>
 
             <!-- Desktop Nav -->
@@ -63,7 +61,13 @@ $userRole = $isLoggedIn ? $_SESSION['user_role'] : null; // 'admin' or 'user'
                 <a href="../admin/dashboard.php" class="hover:text-yellow-500 flex items-center gap-1">
                     <i data-feather="layout"></i> Dashboard
                 </a>
+                <?php else: ?>
+                <!-- Added My Orders -->
+                <a href="orders.php" class="hover:text-yellow-500 flex items-center gap-1">
+                    <i data-feather="package"></i> My Orders
+                </a>
                 <?php endif; ?>
+
                 <span class="text-gray-700 flex items-center gap-1">
                     <i data-feather="user"></i> <?= htmlspecialchars($userName) ?>
                 </span>
@@ -105,6 +109,11 @@ $userRole = $isLoggedIn ? $_SESSION['user_role'] : null; // 'admin' or 'user'
             <?php if ($userRole === 'admin'): ?>
             <a href="../admin/dashboard.php" class="px-4 py-2 hover:bg-gray-100 flex items-center gap-1">
                 <i data-feather="layout"></i> Dashboard
+            </a>
+            <?php else: ?>
+            <!-- Added My Orders -->
+            <a href="orders.php" class="px-4 py-2 hover:bg-gray-100 flex items-center gap-1">
+                <i data-feather="package"></i> My Orders
             </a>
             <?php endif; ?>
             <a href="logout.php" class="px-4 py-2 hover:bg-gray-100 text-red-500 flex items-center gap-1">

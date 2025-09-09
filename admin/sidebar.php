@@ -37,6 +37,11 @@
             <?php echo basename($_SERVER['PHP_SELF']) == 'orders.php' ? 'bg-blue-100 text-blue-700 font-medium' : 'hover:bg-gray-100 text-gray-700'; ?>">
             📦 <span class="ml-2">Orders</span>
         </a>
+        <a href="admin_hero.php"
+            class="flex items-center px-4 py-2 rounded-lg transition 
+            <?php echo basename($_SERVER['PHP_SELF']) == 'admin_hero.php' ? 'bg-blue-100 text-blue-700 font-medium' : 'hover:bg-gray-100 text-gray-700'; ?>">
+            🖼️ <span class="ml-2">Hero Manager</span>
+        </a>
     </nav>
 
     <!-- Footer -->
