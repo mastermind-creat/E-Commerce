@@ -8,8 +8,9 @@ if (!isset($_GET['path']) || empty($_GET['path'])) {
 $path = $_GET['path'];
 
 // Sanitize: Only allow paths starting with 'assets/' and no traversal
-if (strpos($path, '../') !== false || strpos($path, '..\\') !== false || !preg_match('/^assets\/[^.\/\\]+\.(jpg|jpeg|png|gif|webp)$/i', $path)) {
+if (!preg_match('%^assets/(?!.*\.\.)[^./\\\\]+\.(jpg|jpeg|png|gif|webp)$%i', $path)) {
     http_response_code(403);
+    header('Content-Type: text/plain');
     exit('Forbidden');
 }
 

@@ -4,6 +4,7 @@
 
 require_once __DIR__ . '/../includes/db.php';
 include __DIR__ . '/../includes/header.php'; // should contain <head> and open <body>; if not, Tailwind included below
+include __DIR__ . '/../includes/functions.php'; // helper functions
 ?>
 <!-- If header.php DOES NOT include Tailwind, uncomment below line (only one copy of tailwind needed) -->
 <!-- <script src="https://cdn.tailwindcss.com"></script> -->
@@ -79,24 +80,24 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
 
             <!-- Right: Hero & CTA -->
             <section class="lg:col-span-9">
-                <div class="relative rounded-2xl overflow-hidden shadow-lg">
-                    <!-- Slides track -->
-                    <div id="heroTrack"
-                        class="flex transition-transform duration-700 ease-in-out will-change-transform">
-                        <?php
-                        try {
-                            $hero_stmt = $pdo->query("SELECT * FROM hero_slides WHERE active = 1 ORDER BY order_num ASC, id ASC");
-                            $hero_slides = $hero_stmt->fetchAll(PDO::FETCH_ASSOC);
-                        } catch (Exception $e) {
-                            $hero_slides = [];
-                        }
+                <?php
+    // Use helper functions from includes/functions.php
+    $hero_slides = get_hero_slides($pdo);
+    $promo_tiles = get_promo_tiles($pdo);
+    ?>
 
-                        if (!empty($hero_slides)):
-                            foreach ($hero_slides as $i => $slide):
-                        ?>
+                <div class="relative rounded-2xl overflow-hidden shadow-lg">
+                    <div id="heroTrack" class="flex transition-transform duration-700 ease-in-out will-change-transform"
+                        aria-live="polite">
+                        <?php if (!empty($hero_slides)): ?>
+                        <?php foreach ($hero_slides as $i => $slide): ?>
                         <div class="w-full flex-shrink-0 relative">
-                            <img src="/image.php?path=<?= urlencode(ltrim($slide['image_path'], '/')) ?>"
-                                alt="<?= htmlspecialchars($slide['title']) ?>" class="w-full h-64 sm:h-96 object-cover">
+                            <?php if (!empty($slide['image_path'])): ?>
+                            <img src="<?= image_url($slide['image_path']) ?>"
+                                alt="<?= htmlspecialchars($slide['title']) ?>" class="w-full h-64 sm:h-96 object-cover"
+                                loading="<?= $i > 0 ? 'lazy' : 'eager' ?>">
+                            <?php endif; ?>
+
                             <div
                                 class="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40 flex items-center">
                                 <div class="max-w-3xl px-6 py-8 sm:px-10">
@@ -104,37 +105,45 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                                         class="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg">
                                         <?= htmlspecialchars($slide['title']) ?>
                                     </h2>
+
+                                    <?php if (!empty($slide['description'])): ?>
                                     <p class="mt-3 text-white/90 max-w-xl">
-                                        <?= htmlspecialchars($slide['description']) ?></p>
+                                        <?= htmlspecialchars($slide['description']) ?>
+                                    </p>
+                                    <?php endif; ?>
+
+                                    <?php if (!empty($slide['button_text']) && !empty($slide['button_link'])): ?>
                                     <div class="mt-6 flex gap-3">
-                                        <?php if (!empty($slide['button_text']) && !empty($slide['button_link'])): ?>
                                         <a href="<?= htmlspecialchars($slide['button_link']) ?>"
-                                            class="inline-block bg-pink-400 hover:bg-pink-500 text-gray-900 px-5 py-3 rounded-full font-semibold shadow">
+                                            class="inline-block bg-pink-400 hover:bg-pink-500 text-gray-900 px-5 py-3 rounded-full font-semibold shadow transition-colors">
                                             <?= htmlspecialchars($slide['button_text']) ?>
                                         </a>
-                                        <?php endif; ?>
                                     </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
-                        <?php endforeach;
-                        else: ?>
-                        <!-- Fallback if no slides in DB -->
+                        <?php endforeach; ?>
+                        <?php else: ?>
+                        <!-- Fallback slide -->
                         <div class="w-full flex-shrink-0 relative">
-                            <img src="/public/assets/hero1.jpg" alt="Default Hero"
-                                class="w-full h-64 sm:h-96 object-cover">
+                            <img src="<?= image_url('assets/hero1.jpg') ?>" alt="Default Hero"
+                                class="w-full h-64 sm:h-96 object-cover" loading="eager">
                             <div
                                 class="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40 flex items-center">
                                 <div class="max-w-3xl px-6 py-8 sm:px-10">
                                     <h2
                                         class="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg">
-                                        Discover Handpicked Styles</h2>
-                                    <p class="mt-3 text-white/90 max-w-xl">Clothes, bags, jewelry and more — quality
-                                        finds at friendly prices.</p>
+                                        Discover Handpicked Styles
+                                    </h2>
+                                    <p class="mt-3 text-white/90 max-w-xl">
+                                        Clothes, bags, jewelry and more — quality finds at friendly prices.
+                                    </p>
                                     <div class="mt-6 flex gap-3">
                                         <a href="/shop.php"
-                                            class="inline-block bg-pink-400 hover:bg-pink-500 text-gray-900 px-5 py-3 rounded-full font-semibold shadow">Shop
-                                            Now</a>
+                                            class="inline-block bg-pink-400 hover:bg-pink-500 text-gray-900 px-5 py-3 rounded-full font-semibold shadow transition-colors">
+                                            Shop Now
+                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -142,84 +151,66 @@ include __DIR__ . '/../includes/header.php'; // should contain <head> and open <
                         <?php endif; ?>
                     </div>
 
-                    <!-- controls -->
-                    <button id="heroPrev" aria-label="Previous"
-                        class="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow">&larr;</button>
-                    <button id="heroNext" aria-label="Next"
-                        class="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow">&rarr;</button>
+                    <!-- Navigation controls -->
+                    <button id="heroPrev" aria-label="Previous slide"
+                        class="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow hover:bg-white transition-colors">&larr;</button>
+                    <button id="heroNext" aria-label="Next slide"
+                        class="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow hover:bg-white transition-colors">&rarr;</button>
 
-                    <!-- indicators -->
+                    <!-- Slide indicators -->
+                    <?php if (!empty($hero_slides)): ?>
                     <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                        <?php $slideCount = count($hero_slides); ?>
-                        <?php for($i=0; $i < $slideCount; $i++): ?>
-                        <button class="w-3 h-3 rounded-full bg-white/60" data-ind="<?= $i ?>"
-                            aria-label="Go to slide <?= $i+1 ?>"></button>
-                        <?php endfor; ?>
+                        <?php foreach ($hero_slides as $i => $slide): ?>
+                        <button
+                            class="w-3 h-3 rounded-full bg-white/60 hover:bg-white/80 transition-colors <?= $i === 0 ? '!bg-white' : '' ?>"
+                            data-ind="<?= $i ?>" aria-label="Go to slide <?= $i + 1 ?>"></button>
+                        <?php endforeach; ?>
                     </div>
-                </div>
-
-                <!-- Promo tiles (below hero) -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                    <?php
-                    try {
-                        $promo_stmt = $pdo->query("SELECT * FROM promo_tiles WHERE active = 1 ORDER BY order_num ASC LIMIT 3");
-                        $promo_tiles = $promo_stmt->fetchAll(PDO::FETCH_ASSOC);
-                    } catch (Exception $e) {
-                        $promo_tiles = [];
-                    }
-
-                    if (!empty($promo_tiles)):
-                        foreach ($promo_tiles as $tile):
-                    ?>
-                    <a href="<?= htmlspecialchars($tile['link']) ?>"
-                        class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4">
-                        <?php if (!empty($tile['image_path'])): ?>
-                        <img src="/image.php?path=<?= urlencode(ltrim($tile['image_path'], '/')) ?>"
-                            alt="<?= htmlspecialchars($tile['title']) ?>" class="w-20 h-20 object-cover rounded">
-                        <?php endif; ?>
-                        <div>
-                            <h5 class="font-semibold"><?= htmlspecialchars($tile['title']) ?></h5>
-                            <p class="text-sm text-gray-500"><?= htmlspecialchars($tile['description']) ?></p>
-                            <?php if (!empty($tile['price_text'])): ?>
-                            <div class="mt-2 text-blue-500 font-bold"><?= htmlspecialchars($tile['price_text']) ?></div>
-                            <?php endif; ?>
-                        </div>
-                    </a>
-                    <?php endforeach;
-                    else: ?>
-                    <a href="/shop.php?promo=brand"
-                        class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl p-6 flex items-center gap-4 hover:scale-[1.01] transform transition">
-                        <div>
-                            <h4 class="font-bold text-lg">Super Brand Sale</h4>
-                            <p class="text-sm mt-1">Huge savings across categories</p>
-                        </div>
-                        <div class="ml-auto text-white bg-white/10 px-3 py-2 rounded">Shop</div>
-                    </a>
-
-                    <a href="/shop.php?category=handbags"
-                        class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4">
-                        <img src="/public/assets/promo-handbag.jpg" alt="Handbags"
-                            class="w-20 h-20 object-cover rounded">
-                        <div>
-                            <h5 class="font-semibold">Handbags & Small Bags</h5>
-                            <p class="text-sm text-gray-500">Stylish and versatile options</p>
-                            <div class="mt-2 text-blue-500 font-bold">From KSh 1,499</div>
-                        </div>
-                    </a>
-
-                    <a href="/shop.php?category=clothing"
-                        class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4">
-                        <img src="/public/assets/promo-clothing.jpg" alt="Clothing"
-                            class="w-20 h-20 object-cover rounded">
-                        <div>
-                            <h5 class="font-semibold">Men's T-Shirts & Jewelry</h5>
-                            <p class="text-sm text-gray-500">Quality apparel and accessories</p>
-                            <div class="mt-2 text-blue-500 font-bold">From KSh 999</div>
-                        </div>
-                    </a>
                     <?php endif; ?>
                 </div>
 
+                <!-- Promo tiles section -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <?php if (!empty($promo_tiles)): ?>
+                    <?php foreach ($promo_tiles as $tile): ?>
+                    <a href="<?= htmlspecialchars($tile['link']) ?>"
+                        class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4 group">
+                        <?php if (!empty($tile['image_path'])): ?>
+                        <img src="<?= image_url($tile['image_path']) ?>" alt="<?= htmlspecialchars($tile['title']) ?>"
+                            class="w-20 h-20 object-cover rounded transition-transform group-hover:scale-105">
+                        <?php endif; ?>
+
+                        <div>
+                            <h5 class="font-semibold"><?= htmlspecialchars($tile['title']) ?></h5>
+
+                            <?php if (!empty($tile['description'])): ?>
+                            <p class="text-sm text-gray-500"><?= htmlspecialchars($tile['description']) ?></p>
+                            <?php endif; ?>
+
+                            <?php if (!empty($tile['price_text'])): ?>
+                            <div class="mt-2 text-blue-500 font-bold">
+                                <?= format_price($tile['price_text']) ?>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </a>
+                    <?php endforeach; ?>
+                    <?php else: ?>
+                    <!-- Default promo tiles -->
+                    <?php foreach (get_default_promo_tiles() as $tile): ?>
+                    <a href="<?= $tile['link'] ?>"
+                        class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4 group">
+                        <img src="<?= image_url($tile['image']) ?>" alt="<?= $tile['title'] ?>"
+                            class="w-20 h-20 object-cover rounded transition-transform group-hover:scale-105">
+                        <div>
+                            <h5 class="font-semibold"><?= $tile['title'] ?></h5>
+                            <p class="text-sm text-gray-500"><?= $tile['description'] ?></p>
+                            <div class="mt-2 text-blue-500 font-bold"><?= $tile['price'] ?></div>
+                        </div>
+                    </a>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
             </section>
         </div>
 
