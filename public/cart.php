@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once __DIR__ . '/../includes/db.php';
 
 // Get cart items
 $cart = $_SESSION['cart'] ?? [];
@@ -30,10 +31,20 @@ $total = 0;
             <div class="flex justify-between items-center border-b pb-2">
                 <div>
                     <p class="font-semibold"><?= htmlspecialchars($item['name']) ?></p>
-                    <p class="text-sm text-gray-500">KSh <?= number_format($item['price'], 2) ?> ×
-                        <?= $item['quantity'] ?></p>
+                    <p class="text-sm text-gray-500">
+                        KSh <?= number_format($item['price'], 2) ?> × <?= $item['quantity'] ?>
+                    </p>
                 </div>
-                <div class="font-bold">KSh <?= number_format($lineTotal, 2) ?></div>
+                <div class="flex items-center gap-4">
+                    <div class="font-bold">KSh <?= number_format($lineTotal, 2) ?></div>
+                    <form action="remove_from_cart.php" method="post">
+                        <input type="hidden" name="product_id" value="<?= (int)$item['id'] ?>">
+                        <input type="hidden" name="quantity" value="<?= (int)$item['quantity'] ?>">
+                        <button type="submit" class="text-red-600 hover:text-red-800 font-medium">
+                            Remove
+                        </button>
+                    </form>
+                </div>
             </div>
             <?php endforeach; ?>
 

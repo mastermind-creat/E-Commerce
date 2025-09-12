@@ -81,19 +81,21 @@ include __DIR__ . '/../includes/functions.php'; // helper functions
             <!-- Right: Hero & CTA -->
             <section class="lg:col-span-9">
                 <?php
-    // Use helper functions from includes/functions.php
+    // Load dynamic content
     $hero_slides = get_hero_slides($pdo);
     $promo_tiles = get_promo_tiles($pdo);
     ?>
 
+                <!-- HERO SLIDER -->
                 <div class="relative rounded-2xl overflow-hidden shadow-lg">
                     <div id="heroTrack" class="flex transition-transform duration-700 ease-in-out will-change-transform"
                         aria-live="polite">
+
                         <?php if (!empty($hero_slides)): ?>
                         <?php foreach ($hero_slides as $i => $slide): ?>
                         <div class="w-full flex-shrink-0 relative">
                             <?php if (!empty($slide['image_path'])): ?>
-                            <img src="<?= image_url($slide['image_path']) ?>"
+                            <img src="<?= asset_url($slide['image_path']) ?>"
                                 alt="<?= htmlspecialchars($slide['title']) ?>" class="w-full h-64 sm:h-96 object-cover"
                                 loading="<?= $i > 0 ? 'lazy' : 'eager' ?>">
                             <?php endif; ?>
@@ -125,9 +127,9 @@ include __DIR__ . '/../includes/functions.php'; // helper functions
                         </div>
                         <?php endforeach; ?>
                         <?php else: ?>
-                        <!-- Fallback slide -->
+                        <!-- FALLBACK HERO SLIDE -->
                         <div class="w-full flex-shrink-0 relative">
-                            <img src="<?= image_url('assets/hero1.jpg') ?>" alt="Default Hero"
+                            <img src="<?= asset_url('hero1.jpg') ?>" alt="Default Hero"
                                 class="w-full h-64 sm:h-96 object-cover" loading="eager">
                             <div
                                 class="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40 flex items-center">
@@ -151,13 +153,13 @@ include __DIR__ . '/../includes/functions.php'; // helper functions
                         <?php endif; ?>
                     </div>
 
-                    <!-- Navigation controls -->
+                    <!-- SLIDER CONTROLS -->
                     <button id="heroPrev" aria-label="Previous slide"
                         class="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow hover:bg-white transition-colors">&larr;</button>
                     <button id="heroNext" aria-label="Next slide"
                         class="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow hover:bg-white transition-colors">&rarr;</button>
 
-                    <!-- Slide indicators -->
+                    <!-- INDICATORS -->
                     <?php if (!empty($hero_slides)): ?>
                     <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
                         <?php foreach ($hero_slides as $i => $slide): ?>
@@ -169,14 +171,14 @@ include __DIR__ . '/../includes/functions.php'; // helper functions
                     <?php endif; ?>
                 </div>
 
-                <!-- Promo tiles section -->
+                <!-- PROMO TILES -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                     <?php if (!empty($promo_tiles)): ?>
                     <?php foreach ($promo_tiles as $tile): ?>
                     <a href="<?= htmlspecialchars($tile['link']) ?>"
                         class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4 group">
                         <?php if (!empty($tile['image_path'])): ?>
-                        <img src="<?= image_url($tile['image_path']) ?>" alt="<?= htmlspecialchars($tile['title']) ?>"
+                        <img src="<?= asset_url($tile['image_path']) ?>" alt="<?= htmlspecialchars($tile['title']) ?>"
                             class="w-20 h-20 object-cover rounded transition-transform group-hover:scale-105">
                         <?php endif; ?>
 
@@ -196,22 +198,23 @@ include __DIR__ . '/../includes/functions.php'; // helper functions
                     </a>
                     <?php endforeach; ?>
                     <?php else: ?>
-                    <!-- Default promo tiles -->
+                    <!-- FALLBACK PROMO TILES -->
                     <?php foreach (get_default_promo_tiles() as $tile): ?>
-                    <a href="<?= $tile['link'] ?>"
+                    <a href="<?= htmlspecialchars($tile['link']) ?>"
                         class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4 group">
-                        <img src="<?= image_url($tile['image']) ?>" alt="<?= $tile['title'] ?>"
+                        <img src="<?= $tile['image'] ?>" alt="<?= htmlspecialchars($tile['title']) ?>"
                             class="w-20 h-20 object-cover rounded transition-transform group-hover:scale-105">
                         <div>
-                            <h5 class="font-semibold"><?= $tile['title'] ?></h5>
-                            <p class="text-sm text-gray-500"><?= $tile['description'] ?></p>
-                            <div class="mt-2 text-blue-500 font-bold"><?= $tile['price'] ?></div>
+                            <h5 class="font-semibold"><?= htmlspecialchars($tile['title']) ?></h5>
+                            <p class="text-sm text-gray-500"><?= htmlspecialchars($tile['description']) ?></p>
+                            <div class="mt-2 text-blue-500 font-bold"><?= htmlspecialchars($tile['price']) ?></div>
                         </div>
                     </a>
                     <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
             </section>
+
         </div>
 
         <!-- ===== Featured product grid ===== -->
@@ -254,7 +257,7 @@ include __DIR__ . '/../includes/functions.php'; // helper functions
                         <div class="mt-2 flex items-center justify-between">
                             <div class="text-lg font-bold text-blue-600">KSh <?= number_format($prod['price'], 2) ?>
                             </div>
-                            <a href="/product.php?id=<?= $prod['id'] ?>"
+                            <a href="product.php?id=<?= $prod['id'] ?>"
                                 class="ml-2 px-3 py-1 bg-pink-500 text-white rounded-lg text-xs hover:bg-pink-600">View</a>
                         </div>
                     </div>

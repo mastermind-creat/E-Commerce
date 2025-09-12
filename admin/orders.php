@@ -167,6 +167,8 @@ function renderPagination($total, $currentPage, $perPage, $filter, $section) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Orders - Admin Panel</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- JQUERY -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 
 <body class="bg-gray-100 min-h-screen flex">
@@ -466,7 +468,8 @@ function renderPagination($total, $currentPage, $perPage, $filter, $section) {
     </main>
 
     <!-- Modal -->
-    <div id="itemsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+    <div id="itemsModal" class="fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4"
+        style="display: none;">
         <div class="bg-white rounded-lg p-4 sm:p-6 max-w-sm sm:max-w-lg w-full shadow-lg">
             <h3 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Order Items</h3>
             <div id="itemsContent" class="space-y-2 text-xs sm:text-sm"></div>

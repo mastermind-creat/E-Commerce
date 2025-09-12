@@ -2,7 +2,6 @@
 session_start();
 require_once __DIR__ . '/../includes/db.php';
 
-// Ensure cart exists
 $cart = $_SESSION['cart'] ?? [];
 if (empty($cart)) {
     header("Location: cart.php");
@@ -15,10 +14,22 @@ foreach ($cart as $item) {
     $total += $item['price'] * $item['quantity'];
 }
 
+$user_id = $_SESSION['user_id'] ?? null;
+$default_address = '';
+$default_phone   = '';
+
+// Fetch user’s saved address and phone for pre-filling
+if ($user_id) {
+    $userStmt = $pdo->prepare("SELECT default_address, phone FROM users WHERE id = ?");
+    $userStmt->execute([$user_id]);
+    $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+    $default_address = $user['default_address'] ?? '';
+    $default_phone   = $user['phone'] ?? '';
+}
+
 // Handle checkout submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $user_id = $_SESSION['user_id'] ?? null;
-
     if (!$user_id) {
         header("Location: login.php?redirect=checkout.php");
         exit();
@@ -30,17 +41,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $pdo->beginTransaction();
 
-        // Fetch customer details from users table
-        $userStmt = $pdo->prepare("SELECT name, email, phone FROM users WHERE id = ?");
+        $userStmt = $pdo->prepare("SELECT name, email FROM users WHERE id = ?");
         $userStmt->execute([$user_id]);
         $user = $userStmt->fetch(PDO::FETCH_ASSOC);
 
         $customer_name  = $user['name'] ?? '';
         $customer_email = $user['email'] ?? '';
-        // Prefer the delivery phone entered during checkout
-        $customer_phone = !empty($delivery_phone) ? $delivery_phone : ($user['phone'] ?? '');
+        $customer_phone = !empty($delivery_phone) ? $delivery_phone : $default_phone;
 
-        // Insert order with default payment_method = 'cash'
         $stmt = $pdo->prepare("
             INSERT INTO orders 
                 (user_id, customer_name, customer_email, customer_phone, shipping_address, total_amount, status, payment_method, payment_status, order_status, created_at) 
@@ -51,7 +59,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$user_id, $customer_name, $customer_email, $customer_phone, $shipping_address, $total]);
         $order_id = $pdo->lastInsertId();
 
-        // Insert order items
         $stmt = $pdo->prepare("INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)");
         foreach ($cart as $item) {
             $stmt->execute([$order_id, $item['id'], $item['quantity'], $item['price']]);
@@ -59,7 +66,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $pdo->commit();
 
-        // Clear cart
         unset($_SESSION['cart']);
 
         header("Location: order_success.php?order_id=" . $order_id);
@@ -102,11 +108,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form method="POST" class="bg-white shadow rounded-lg p-6 space-y-4">
             <h2 class="text-lg font-semibold mb-4">Shipping Details</h2>
 
-            <textarea name="shipping_address" placeholder="Enter shipping address" class="w-full border p-3 rounded"
-                required></textarea>
+            <!-- Prefill shipping address -->
+            <textarea name="shipping_address" class="w-full border p-3 rounded"
+                required><?= htmlspecialchars($default_address) ?></textarea>
 
-            <input type="text" name="delivery_phone" placeholder="Enter phone number for delivery"
-                class="w-full border p-3 rounded" required>
+            <!-- Prefill phone number -->
+            <input type="text" name="delivery_phone" class="w-full border p-3 rounded"
+                value="<?= htmlspecialchars($default_phone) ?>" required>
 
             <h2 class="text-lg font-semibold mb-4">Payment Method</h2>
             <p class="text-sm text-gray-600 mb-4">Currently, only <strong>Cash on Delivery</strong> is supported.</p>

@@ -26,7 +26,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $pdo->lastInsertId();
             $_SESSION['user_name'] = $name;
 
-            // Redirect if set
             $redirect = $_GET['redirect'] ?? 'index.php';
             header("Location: $redirect");
             exit;
@@ -37,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!doctype html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8">
@@ -45,23 +44,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
-        <h1 class="text-2xl font-bold text-center mb-6">Create Account</h1>
+<body class="bg-pink-50 flex items-center justify-center min-h-screen px-4">
+    <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center text-pink-600 mb-6">Create Account</h1>
+
         <?php if ($message): ?>
-        <p class="text-red-500 mb-4"><?= htmlspecialchars($message) ?></p>
+        <p class="text-red-500 mb-4 text-center"><?= htmlspecialchars($message) ?></p>
         <?php endif; ?>
+
         <form method="post" class="space-y-4">
-            <input type="text" name="name" placeholder="Full Name" class="w-full border p-2 rounded" required>
-            <input type="email" name="email" placeholder="Email Address" class="w-full border p-2 rounded" required>
-            <input type="text" name="phone" placeholder="Phone Number" class="w-full border p-2 rounded" required>
-            <textarea name="shipping_address" placeholder="Shipping Address" class="w-full border p-2 rounded"
+            <input type="text" name="name" placeholder="Full Name"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                required>
+
+            <input type="email" name="email" placeholder="Email Address"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                required>
+
+            <input type="text" name="phone" placeholder="Phone Number"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                required>
+
+            <textarea name="shipping_address" placeholder="Shipping Address"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400 h-24 resize-none"
                 required></textarea>
-            <input type="password" name="password" placeholder="Password" class="w-full border p-2 rounded" required>
-            <button class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 rounded">Register</button>
+
+            <input type="password" name="password" placeholder="Password"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                required>
+
+            <button
+                class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 rounded-lg transition duration-200">
+                Register
+            </button>
         </form>
-        <p class="text-center text-sm mt-4">Already have an account?
-            <a href="login.php" class="text-blue-600 hover:underline">Login</a>
+
+        <p class="text-center text-sm mt-4">
+            Already have an account?
+            <a href="login.php" class="text-pink-600 hover:underline">Login</a>
         </p>
     </div>
 </body>
