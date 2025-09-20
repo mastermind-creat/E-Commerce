@@ -1,142 +1,252 @@
 <?php
+// public/order_success.php - Order Success Page
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
 require_once __DIR__ . '/../includes/db.php';
 
-// If order_id not passed, redirect
-if (!isset($_GET['order_id'])) {
-    header("Location: shop.php");
-    exit();
+// Set page title
+$pageTitle = 'Order Confirmation';
+
+$orderId = intval($_GET['order_id'] ?? 0);
+
+if (!$orderId) {
+    header('Location: index.php');
+    exit;
 }
 
-$order_id = intval($_GET['order_id']);
-
-// Fetch order
-$stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
-$stmt->execute([$order_id]);
-$order = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$order) {
-    header("Location: shop.php");
-    exit();
+// Get order details
+try {
+    $orderStmt = $pdo->prepare("
+        SELECT o.*, u.name as user_name, u.email as user_email 
+        FROM orders o 
+        LEFT JOIN users u ON o.user_id = u.id 
+        WHERE o.id = ?
+    ");
+    $orderStmt->execute([$orderId]);
+    $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$order) {
+        header('Location: index.php');
+        exit;
+    }
+    
+    // Get order items
+    $itemsStmt = $pdo->prepare("
+        SELECT oi.*, p.name as product_name, pi.image_url 
+        FROM order_items oi 
+        JOIN products p ON oi.product_id = p.id 
+        LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = 1
+        WHERE oi.order_id = ?
+    ");
+    $itemsStmt->execute([$orderId]);
+    $orderItems = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+} catch (Exception $e) {
+    header('Location: index.php');
+    exit;
 }
 
-// Fetch order items
-$itemStmt = $pdo->prepare("
-    SELECT oi.*, p.name, pi.image_url 
-    FROM order_items oi
-    JOIN products p ON oi.product_id = p.id
-    LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
-    WHERE oi.order_id = ?
-");
-$itemStmt->execute([$order_id]);
-$items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Clear cart after successful order
-unset($_SESSION['cart']);
+include __DIR__ . '/../includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Success - Aunt’s Store</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-
-<body class="bg-gray-50 text-gray-900">
-    <?php include __DIR__ . '/../includes/header.php'; ?>
-
-    <div class="max-w-4xl mx-auto px-4 py-10">
-        <div class="bg-white rounded-2xl shadow-xl p-8 text-center animate-fadeIn">
-            <div class="flex justify-center mb-4">
-                <div class="bg-green-100 p-4 rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-green-600" fill="none"
-                        viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
+<main class="min-h-screen bg-gray-50">
+    <!-- Success Header -->
+    <div class="bg-gradient-to-r from-green-500 to-green-600 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+            <div class="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i data-feather="check" class="w-10 h-10"></i>
             </div>
-
-            <h1 class="text-3xl font-bold text-green-600 mb-2">Order Placed Successfully 🎉</h1>
-            <p class="text-gray-600 mb-6">
-                Thank you for shopping with us! Your order
-                <span class="font-semibold text-gray-900">#<?= $order['id']; ?></span>
-                is currently
-                <span class="font-semibold text-blue-600"><?= htmlspecialchars($order['status']); ?></span>.
-            </p>
-
-            <div class="bg-gray-50 border rounded-xl p-6 shadow-inner mb-6">
-                <h2 class="text-xl font-semibold mb-4 text-gray-800 text-left">Order Summary</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-gray-100 text-gray-700">
-                            <tr>
-                                <th class="px-4 py-2">Product</th>
-                                <th class="px-4 py-2">Price</th>
-                                <th class="px-4 py-2 text-center">Qty</th>
-                                <th class="px-4 py-2 text-right">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($items as $it): ?>
-                            <tr class="border-t hover:bg-gray-50">
-                                <td class="px-4 py-3 flex items-center">
-                                    <img src="<?= $it['image_url'] ?: 'assets/images/placeholder.png'; ?>"
-                                        alt="<?= htmlspecialchars($it['name']); ?>"
-                                        class="w-12 h-12 object-cover rounded mr-3 shadow">
-                                    <span class="font-medium"><?= htmlspecialchars($it['name']); ?></span>
-                                </td>
-                                <td class="px-4 py-3">KSh <?= number_format($it['price'], 2); ?></td>
-                                <td class="px-4 py-3 text-center"><?= (int)$it['quantity']; ?></td>
-                                <td class="px-4 py-3 text-right font-semibold">
-                                    KSh <?= number_format($it['price'] * $it['quantity'], 2); ?>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="mt-4 flex justify-between items-center text-lg font-bold">
-                    <span>Grand Total</span>
-                    <span class="text-green-600">KSh <?= number_format($order['total_amount'], 2); ?></span>
-                </div>
-            </div>
-
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="shop.php"
-                    class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-md">
-                    🛍 Continue Shopping
-                </a>
-                <a href="orders.php"
-                    class="px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition shadow-md">
-                    📦 View My Orders
-                </a>
-            </div>
+            <h1 class="text-4xl sm:text-5xl font-bold mb-4">Order Confirmed!</h1>
+            <p class="text-xl text-green-100">Thank you for your purchase. Your order has been successfully placed.</p>
         </div>
     </div>
 
-    <?php include __DIR__ . '/../includes/footer.php'; ?>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Order Details -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Order Information -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-6">Order Information</h2>
 
-    <style>
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500 mb-2">Order Number</h3>
+                            <p class="text-lg font-semibold text-gray-900">#<?= $order['id'] ?></p>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500 mb-2">Order Date</h3>
+                            <p class="text-lg font-semibold text-gray-900">
+                                <?= date('M j, Y', strtotime($order['created_at'])) ?></p>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500 mb-2">Payment Method</h3>
+                            <p class="text-lg font-semibold text-gray-900">
+                                <?= ucfirst(str_replace('_', ' ', $order['payment_method'])) ?></p>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500 mb-2">Status</h3>
+                            <span
+                                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                                <?= ucfirst($order['order_status']) ?>
+                            </span>
+                        </div>
+                    </div>
+                </div>
 
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
+                <!-- Shipping Information -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-6">Shipping Information</h2>
 
-    .animate-fadeIn {
-        animation: fadeIn 0.6s ease-in-out;
-    }
-    </style>
-</body>
+                    <div class="space-y-4">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500 mb-1">Delivery Address</h3>
+                            <p class="text-gray-900"><?= nl2br(htmlspecialchars($order['shipping_address'])) ?></p>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500 mb-1">Contact Phone</h3>
+                            <p class="text-gray-900"><?= htmlspecialchars($order['customer_phone']) ?></p>
+                        </div>
+                        <?php if (!empty($order['notes'])): ?>
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500 mb-1">Order Notes</h3>
+                            <p class="text-gray-900"><?= htmlspecialchars($order['notes']) ?></p>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
 
-</html>
+                <!-- Order Items -->
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-6">Order Items</h2>
+
+                    <div class="space-y-4">
+                        <?php foreach ($orderItems as $item): ?>
+                        <div class="flex items-center space-x-4 py-4 border-b border-gray-200 last:border-b-0">
+                            <img src="<?= $item['image_url'] ? 'assets/products/' . htmlspecialchars($item['image_url']) : 'assets/images/placeholder.png' ?>"
+                                alt="<?= htmlspecialchars($item['product_name']) ?>"
+                                class="w-16 h-16 object-cover rounded-lg"
+                                onerror="this.src='assets/images/placeholder.png'">
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-lg font-medium text-gray-900">
+                                    <?= htmlspecialchars($item['product_name']) ?></h3>
+                                <p class="text-gray-600">Quantity: <?= $item['quantity'] ?></p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-lg font-semibold text-gray-900">KSh
+                                    <?= number_format($item['subtotal'], 2) ?></p>
+                                <p class="text-sm text-gray-600">KSh <?= number_format($item['price'], 2) ?> each</p>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <!-- Next Steps -->
+                <div class="bg-blue-50 rounded-2xl p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">What's Next?</h2>
+                    <div class="space-y-3">
+                        <div class="flex items-start">
+                            <div
+                                class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">
+                                1</div>
+                            <div>
+                                <h3 class="font-medium text-gray-900">Order Confirmation</h3>
+                                <p class="text-sm text-gray-600">You'll receive an email confirmation shortly.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div
+                                class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">
+                                2</div>
+                            <div>
+                                <h3 class="font-medium text-gray-900">Order Processing</h3>
+                                <p class="text-sm text-gray-600">We'll prepare your order for shipment.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div
+                                class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-semibold mr-3 mt-0.5">
+                                3</div>
+                            <div>
+                                <h3 class="font-medium text-gray-900">Delivery</h3>
+                                <p class="text-sm text-gray-600">Your order will be delivered within 2-3 business days.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order Summary -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-2xl shadow-lg p-6 sticky top-24">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-6">Order Summary</h2>
+
+                    <div class="space-y-4">
+                        <div class="flex justify-between text-gray-600">
+                            <span>Subtotal</span>
+                            <span>KSh <?= number_format($order['total_amount'], 2) ?></span>
+                        </div>
+                        <div class="flex justify-between text-gray-600">
+                            <span>Shipping</span>
+                            <span class="text-green-600">Free</span>
+                        </div>
+                        <div class="flex justify-between text-gray-600">
+                            <span>Tax</span>
+                            <span>KSh 0.00</span>
+                        </div>
+                        <hr class="border-gray-200">
+                        <div class="flex justify-between text-lg font-semibold text-gray-900">
+                            <span>Total</span>
+                            <span>KSh <?= number_format($order['total_amount'], 2) ?></span>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 space-y-3">
+                        <a href="orders.php"
+                            class="w-full bg-primary-500 text-white py-3 px-4 rounded-lg font-semibold hover:bg-primary-600 transition-colors text-center block">
+                            <i data-feather="package" class="w-4 h-4 mr-2 inline"></i>
+                            View All Orders
+                        </a>
+                        <a href="shop.php"
+                            class="w-full border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors text-center block">
+                            <i data-feather="shopping-bag" class="w-4 h-4 mr-2 inline"></i>
+                            Continue Shopping
+                        </a>
+                    </div>
+
+                    <!-- Contact Support -->
+                    <div class="mt-6 pt-6 border-t border-gray-200">
+                        <h3 class="text-sm font-medium text-gray-900 mb-3">Need Help?</h3>
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <div class="flex items-center">
+                                <i data-feather="phone" class="w-4 h-4 mr-2"></i>
+                                <a href="tel:+254712345678" class="hover:text-primary-600">+254 712 345 678</a>
+                            </div>
+                            <div class="flex items-center">
+                                <i data-feather="mail" class="w-4 h-4 mr-2"></i>
+                                <a href="mailto:support@springsstore.com"
+                                    class="hover:text-primary-600">support@springsstore.com</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- JavaScript -->
+<script>
+// Initialize Feather icons
+feather.replace();
+
+// Auto-scroll to top
+window.scrollTo(0, 0);
+</script>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>

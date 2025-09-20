@@ -1,473 +1,407 @@
 <?php
-// public/index.php
-// Landing page — advanced, responsive, animated, tailored for your project
+// public/index.php - Professional E-Commerce Homepage
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 require_once __DIR__ . '/../includes/db.php';
-include __DIR__ . '/../includes/header.php'; // should contain <head> and open <body>; if not, Tailwind included below
-include __DIR__ . '/../includes/functions.php'; // helper functions
+include __DIR__ . '/../includes/functions.php';
+
+// Set page title
+$pageTitle = 'Home';
+
+// Get product images from filesystem for carousel and new arrivals
+$productsDir = __DIR__ . '/assets/products';
+$productImages = [];
+if (is_dir($productsDir)) {
+    $files = glob($productsDir . '/*.{jpg,jpeg,png,webp,gif,JPG,JPEG,PNG,WEBP,GIF}', GLOB_BRACE);
+    usort($files, function ($a, $b) {
+        return filemtime($b) <=> filemtime($a);
+    });
+    $productImages = array_map('basename', $files);
+}
+
+// Get categories for navigation
+try {
+    $categories = $pdo->query("SELECT id, name, slug FROM categories ORDER BY name ASC LIMIT 6")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $categories = [];
+}
+
+// Get featured products
+try {
+    $featuredProducts = $pdo->query("
+        SELECT p.*, c.name as category_name, 
+               COALESCE(
+                   (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id AND pi.is_primary = 1 LIMIT 1),
+                   (SELECT pi2.image_url FROM product_images pi2 WHERE pi2.product_id = p.id LIMIT 1)
+               ) AS image_url
+        FROM products p 
+        LEFT JOIN categories c ON p.category_id = c.id 
+        WHERE p.status = 'active' 
+        ORDER BY p.created_at DESC 
+        LIMIT 8
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $featuredProducts = [];
+}
+
+// Get recent reviews
+try {
+    $reviews = $pdo->query("
+        SELECT r.*, u.name as user_name 
+        FROM reviews r 
+        JOIN users u ON r.user_id = u.id 
+        ORDER BY r.created_at DESC 
+        LIMIT 6
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $reviews = [];
+}
+
+include __DIR__ . '/../includes/header.php';
 ?>
-<!-- If header.php DOES NOT include Tailwind, uncomment below line (only one copy of tailwind needed) -->
-<!-- <script src="https://cdn.tailwindcss.com"></script> -->
 
-<main class="bg-gray-50 text-gray-800">
-
-    <!-- ===== Top promo bar (optional) ===== -->
-    <div class="hidden md:flex justify-center bg-blue-600 text-white px-4 py-2 text-sm">
-        <div class="max-w-7xl w-full flex justify-between items-center px-4">
-            <div>🔥 Get KSh 100 off — limited time offer!</div>
-            <div class="space-x-4">
-                <a href="/seller" class="underline">Seller Center</a>
-                <a href="/help" class="underline">Help</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        <!-- ===== Header Row: Mega categories (left) + Hero (right) ===== -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-            <!-- Left: Mega categories (collapsible on mobile) -->
-            <aside class="lg:col-span-3">
-                <div class="bg-white rounded-2xl shadow sticky top-6 overflow-hidden">
-                    <div class="flex items-center justify-between px-4 py-3 border-b">
-                        <div class="flex items-center gap-3">
-                            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                            <h3 class="font-semibold">Shop by category</h3>
-                        </div>
-                        <button id="catToggle" class="lg:hidden px-2 py-1 text-sm text-gray-600">Categories</button>
+<main class="min-h-screen">
+    <!-- Hero Section -->
+    <section class="relative bg-gradient-to-br from-primary-50 to-pink-50 py-12 lg:py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <!-- Hero Content -->
+                <div class="space-y-8">
+                    <div class="space-y-4">
+                        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                            Discover Your
+                            <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-pink-600">
+                                Perfect Style
+                            </span>
+                        </h1>
+                        <p class="text-lg sm:text-xl text-gray-600 leading-relaxed">
+                            Explore our curated collection of clothes, bags, and jewelry.
+                            Quality pieces that reflect your unique personality at unbeatable prices.
+                        </p>
                     </div>
 
-                    <!-- Category list -->
-                    <nav id="categoryPanel" class="p-2 space-y-1 max-h-[65vh] overflow-y-auto">
-                        <?php
-                        try {
-                            $cats = $pdo->query("SELECT id, name, slug FROM categories ORDER BY name ASC LIMIT 50")->fetchAll(PDO::FETCH_ASSOC);
-                        } catch (Exception $e) {
-                            $cats = [];
-                        }
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <a href="shop.php"
+                            class="inline-flex items-center justify-center px-8 py-4 bg-primary-500 text-white font-semibold rounded-lg hover:bg-primary-600 transition-all duration-200 transform hover:scale-105 shadow-lg">
+                            <i data-feather="shopping-bag" class="w-5 h-5 mr-2"></i>
+                            Shop Now
+                        </a>
+                        <a href="#featured"
+                            class="inline-flex items-center justify-center px-8 py-4 border-2 border-primary-500 text-primary-600 font-semibold rounded-lg hover:bg-primary-50 transition-all duration-200">
+                            <i data-feather="eye" class="w-5 h-5 mr-2"></i>
+                            View Collection
+                        </a>
+                    </div>
 
-                        foreach ($cats as $c):
-                        ?>
-                        <div class="group">
-                            <a href="/shop.php?category=<?= urlencode($c['slug']) ?>"
-                                class="flex items-center justify-between px-3 py-2 rounded hover:bg-gray-50 transition">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-600">
-                                        <?= strtoupper(substr($c['name'], 0, 1)) ?>
-                                    </div>
-                                    <span class="text-sm text-gray-700"><?= htmlspecialchars($c['name']) ?></span>
-                                </div>
-                                <svg class="w-4 h-4 text-gray-400 group-hover:text-gray-600" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9 5l7 7-7 7" />
-                                </svg>
-                            </a>
+                    <!-- Stats -->
+                    <div class="grid grid-cols-3 gap-8 pt-8 border-t border-gray-200">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-primary-600">500+</div>
+                            <div class="text-sm text-gray-600">Products</div>
                         </div>
-                        <?php endforeach; ?>
-
-                        <?php if (empty($cats)): ?>
-                        <div class="p-3 text-sm text-gray-500">No categories yet</div>
-                        <?php endif; ?>
-                    </nav>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-primary-600">1000+</div>
+                            <div class="text-sm text-gray-600">Happy Customers</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-primary-600">24/7</div>
+                            <div class="text-sm text-gray-600">Support</div>
+                        </div>
+                    </div>
                 </div>
-            </aside>
 
-            <!-- Right: Hero & CTA -->
-            <section class="lg:col-span-9">
-                <?php
-    // Load dynamic content
-    $hero_slides = get_hero_slides($pdo);
-    $promo_tiles = get_promo_tiles($pdo);
-    ?>
-
-                <!-- HERO SLIDER -->
-                <div class="relative rounded-2xl overflow-hidden shadow-lg">
-                    <div id="heroTrack" class="flex transition-transform duration-700 ease-in-out will-change-transform"
-                        aria-live="polite">
-
-                        <?php if (!empty($hero_slides)): ?>
-                        <?php foreach ($hero_slides as $i => $slide): ?>
-                        <div class="w-full flex-shrink-0 relative">
-                            <?php if (!empty($slide['image_path'])): ?>
-                            <img src="<?= asset_url($slide['image_path']) ?>"
-                                alt="<?= htmlspecialchars($slide['title']) ?>" class="w-full h-64 sm:h-96 object-cover"
-                                loading="<?= $i > 0 ? 'lazy' : 'eager' ?>">
-                            <?php endif; ?>
-
+                <!-- Hero Image Carousel -->
+                <div class="relative">
+                    <div class="relative h-96 lg:h-[500px] rounded-2xl overflow-hidden shadow-2xl">
+                        <?php if (!empty($productImages)): ?>
+                        <div id="heroCarousel" class="relative h-full">
+                            <?php foreach (array_slice($productImages, 0, 5) as $i => $img): ?>
                             <div
-                                class="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40 flex items-center">
-                                <div class="max-w-3xl px-6 py-8 sm:px-10">
-                                    <h2
-                                        class="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg">
-                                        <?= htmlspecialchars($slide['title']) ?>
-                                    </h2>
-
-                                    <?php if (!empty($slide['description'])): ?>
-                                    <p class="mt-3 text-white/90 max-w-xl">
-                                        <?= htmlspecialchars($slide['description']) ?>
-                                    </p>
-                                    <?php endif; ?>
-
-                                    <?php if (!empty($slide['button_text']) && !empty($slide['button_link'])): ?>
-                                    <div class="mt-6 flex gap-3">
-                                        <a href="<?= htmlspecialchars($slide['button_link']) ?>"
-                                            class="inline-block bg-pink-400 hover:bg-pink-500 text-gray-900 px-5 py-3 rounded-full font-semibold shadow transition-colors">
-                                            <?= htmlspecialchars($slide['button_text']) ?>
-                                        </a>
-                                    </div>
-                                    <?php endif; ?>
-                                </div>
+                                class="hero-slide absolute inset-0 transition-opacity duration-1000 <?= $i === 0 ? 'opacity-100' : 'opacity-0' ?>">
+                                <img src="assets/products/<?= htmlspecialchars($img) ?>" alt="Featured Product"
+                                    class="w-full h-full object-cover"
+                                    onerror="this.src='assets/images/placeholder.png'">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                             </div>
+                            <?php endforeach; ?>
                         </div>
-                        <?php endforeach; ?>
+
+                        <!-- Carousel Controls -->
+                        <button id="prevSlide"
+                            class="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg transition-all">
+                            <i data-feather="chevron-left" class="w-5 h-5"></i>
+                        </button>
+                        <button id="nextSlide"
+                            class="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg transition-all">
+                            <i data-feather="chevron-right" class="w-5 h-5"></i>
+                        </button>
+
+                        <!-- Indicators -->
+                        <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
+                            <?php foreach (array_slice($productImages, 0, 5) as $i => $img): ?>
+                            <button
+                                class="hero-indicator w-3 h-3 rounded-full bg-white/60 hover:bg-white transition-all <?= $i === 0 ? 'bg-white' : '' ?>"
+                                data-slide="<?= $i ?>"></button>
+                            <?php endforeach; ?>
+                        </div>
                         <?php else: ?>
-                        <!-- FALLBACK HERO SLIDE -->
-                        <div class="w-full flex-shrink-0 relative">
-                            <img src="<?= asset_url('hero1.jpg') ?>" alt="Default Hero"
-                                class="w-full h-64 sm:h-96 object-cover" loading="eager">
-                            <div
-                                class="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40 flex items-center">
-                                <div class="max-w-3xl px-6 py-8 sm:px-10">
-                                    <h2
-                                        class="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg">
-                                        Discover Handpicked Styles
-                                    </h2>
-                                    <p class="mt-3 text-white/90 max-w-xl">
-                                        Clothes, bags, jewelry and more — quality finds at friendly prices.
-                                    </p>
-                                    <div class="mt-6 flex gap-3">
-                                        <a href="/shop.php"
-                                            class="inline-block bg-pink-400 hover:bg-pink-500 text-gray-900 px-5 py-3 rounded-full font-semibold shadow transition-colors">
-                                            Shop Now
-                                        </a>
-                                    </div>
-                                </div>
+                        <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                            <div class="text-center text-gray-500">
+                                <i data-feather="image" class="w-16 h-16 mx-auto mb-4"></i>
+                                <p>No images available</p>
                             </div>
                         </div>
                         <?php endif; ?>
                     </div>
-
-                    <!-- SLIDER CONTROLS -->
-                    <button id="heroPrev" aria-label="Previous slide"
-                        class="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow hover:bg-white transition-colors">&larr;</button>
-                    <button id="heroNext" aria-label="Next slide"
-                        class="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 p-2 rounded-full shadow hover:bg-white transition-colors">&rarr;</button>
-
-                    <!-- INDICATORS -->
-                    <?php if (!empty($hero_slides)): ?>
-                    <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                        <?php foreach ($hero_slides as $i => $slide): ?>
-                        <button
-                            class="w-3 h-3 rounded-full bg-white/60 hover:bg-white/80 transition-colors <?= $i === 0 ? '!bg-white' : '' ?>"
-                            data-ind="<?= $i ?>" aria-label="Go to slide <?= $i + 1 ?>"></button>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
                 </div>
-
-                <!-- PROMO TILES -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                    <?php if (!empty($promo_tiles)): ?>
-                    <?php foreach ($promo_tiles as $tile): ?>
-                    <a href="<?= htmlspecialchars($tile['link']) ?>"
-                        class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4 group">
-                        <?php if (!empty($tile['image_path'])): ?>
-                        <img src="<?= asset_url($tile['image_path']) ?>" alt="<?= htmlspecialchars($tile['title']) ?>"
-                            class="w-20 h-20 object-cover rounded transition-transform group-hover:scale-105">
-                        <?php endif; ?>
-
-                        <div>
-                            <h5 class="font-semibold"><?= htmlspecialchars($tile['title']) ?></h5>
-
-                            <?php if (!empty($tile['description'])): ?>
-                            <p class="text-sm text-gray-500"><?= htmlspecialchars($tile['description']) ?></p>
-                            <?php endif; ?>
-
-                            <?php if (!empty($tile['price_text'])): ?>
-                            <div class="mt-2 text-blue-500 font-bold">
-                                <?= format_price($tile['price_text']) ?>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                    </a>
-                    <?php endforeach; ?>
-                    <?php else: ?>
-                    <!-- FALLBACK PROMO TILES -->
-                    <?php foreach (get_default_promo_tiles() as $tile): ?>
-                    <a href="<?= htmlspecialchars($tile['link']) ?>"
-                        class="bg-white rounded-xl p-4 shadow hover:shadow-xl transition flex items-center gap-4 group">
-                        <img src="<?= $tile['image'] ?>" alt="<?= htmlspecialchars($tile['title']) ?>"
-                            class="w-20 h-20 object-cover rounded transition-transform group-hover:scale-105">
-                        <div>
-                            <h5 class="font-semibold"><?= htmlspecialchars($tile['title']) ?></h5>
-                            <p class="text-sm text-gray-500"><?= htmlspecialchars($tile['description']) ?></p>
-                            <div class="mt-2 text-blue-500 font-bold"><?= htmlspecialchars($tile['price']) ?></div>
-                        </div>
-                    </a>
-                    <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-            </section>
-
+            </div>
         </div>
+    </section>
 
-        <!-- ===== Featured product grid ===== -->
-        <section class="mt-10">
-            <div class="flex items-center justify-between">
-                <h3 class="text-2xl font-bold">Featured Products</h3>
-                <a class="text-sm text-gray-600 hover:underline" href="/shop.php">View all</a>
+    <!-- Categories Section -->
+    <section class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Shop by Category</h2>
+                <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                    Discover our carefully curated collections designed to match your style and needs
+                </p>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 mt-6">
-                <?php
-                try {
-                    $stmt = $pdo->query("
-                        SELECT id, name, price, stock
-                        FROM products
-                        WHERE status = 'active'
-                        ORDER BY created_at DESC
-                        LIMIT 20
-                    ");
-                    $prods = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                } catch (Exception $e) {
-                    $prods = [];
-                }
-
-                foreach ($prods as $prod):
-                    $imgStmt = $pdo->prepare("SELECT image_url FROM product_images WHERE product_id = ? ORDER BY id ASC LIMIT 1");
-                    $imgStmt->execute([$prod['id']]);
-                    $imgFile = $imgStmt->fetchColumn();
-                    $thumb = $imgFile ? "assets/products/" . $imgFile : "assets/images/placeholder.png";
-                ?>
-                <article
-                    class="bg-white rounded-2xl p-4 shadow hover:shadow-xl transform hover:-translate-y-2 transition">
-                    <a href="/product.php?id=<?= $prod['id'] ?>" class="block relative">
-                        <img src="<?= htmlspecialchars($thumb) ?>" alt="<?= htmlspecialchars($prod['name']) ?>"
-                            class="w-full h-40 object-cover rounded-lg">
-                    </a>
-
-                    <div class="mt-3">
-                        <h4 class="text-sm font-medium truncate"><?= htmlspecialchars($prod['name']) ?></h4>
-                        <div class="mt-2 flex items-center justify-between">
-                            <div class="text-lg font-bold text-blue-600">KSh <?= number_format($prod['price'], 2) ?>
-                            </div>
-                            <a href="product.php?id=<?= $prod['id'] ?>"
-                                class="ml-2 px-3 py-1 bg-pink-500 text-white rounded-lg text-xs hover:bg-pink-600">View</a>
-                        </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                <?php if (!empty($categories)): ?>
+                <?php foreach ($categories as $category): ?>
+                <a href="shop.php?category=<?= urlencode($category['slug']) ?>"
+                    class="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 text-center">
+                    <div
+                        class="w-16 h-16 bg-gradient-to-br from-primary-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                        <i data-feather="shopping-bag" class="w-8 h-8 text-primary-600"></i>
                     </div>
-                </article>
+                    <h3 class="font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
+                        <?= htmlspecialchars($category['name']) ?>
+                    </h3>
+                </a>
                 <?php endforeach; ?>
-
-                <?php if (empty($prods)): ?>
-                <div class="col-span-full text-center text-gray-500 py-8">No products to show.</div>
+                <?php else: ?>
+                <div class="col-span-full text-center py-12">
+                    <i data-feather="package" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
+                    <p class="text-gray-500">No categories available yet</p>
+                </div>
                 <?php endif; ?>
             </div>
-        </section>
+        </div>
+    </section>
 
-        <!-- ===== Testimonials slider ===== -->
-        <section class="mt-12">
-            <div class="bg-white rounded-2xl shadow p-6">
-                <h3 class="text-xl font-bold mb-4">What customers say</h3>
-                <div id="testimonials" class="relative overflow-hidden">
-                    <div class="flex transition-transform duration-600 ease-in-out" data-test-track>
-                        <?php
-                        try {
-                            $stmt = $pdo->query("
-                                SELECT r.comment, r.rating, u.name AS user_name
-                                FROM reviews r
-                                JOIN users u ON r.user_id = u.id
-                                ORDER BY r.created_at DESC
-                                LIMIT 5
-                            ");
-                            $reviews = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                        } catch (Exception $e) {
-                            $reviews = [];
-                        }
+    <!-- Featured Products Section -->
+    <section id="featured" class="py-16 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-12">
+                <div>
+                    <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Featured Products</h2>
+                    <p class="text-lg text-gray-600">Handpicked items just for you</p>
+                </div>
+                <a href="shop.php"
+                    class="mt-4 sm:mt-0 inline-flex items-center px-6 py-3 bg-primary-500 text-white font-semibold rounded-lg hover:bg-primary-600 transition-colors">
+                    View All Products
+                    <i data-feather="arrow-right" class="w-4 h-4 ml-2"></i>
+                </a>
+            </div>
 
-                        if ($reviews):
-                            foreach ($reviews as $rev):
-                        ?>
-                        <div class="min-w-full p-4">
-                            <blockquote class="text-gray-700 italic">"<?= htmlspecialchars($rev['comment']) ?>"
-                            </blockquote>
-                            <div class="mt-3 text-sm text-gray-500">— <?= htmlspecialchars($rev['user_name']) ?></div>
-                            <div class="flex mt-2">
+            <?php if (!empty($featuredProducts)): ?>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <?php foreach ($featuredProducts as $product): ?>
+                <div
+                    class="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden">
+                    <a href="product.php?id=<?= $product['id'] ?>" class="block">
+                        <div class="relative overflow-hidden">
+                            <img src="<?= $product['image_url'] ? 'assets/products/' . htmlspecialchars($product['image_url']) : 'assets/images/placeholder.png' ?>"
+                                alt="<?= htmlspecialchars($product['name']) ?>"
+                                class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                                onerror="this.src='assets/images/placeholder.png'">
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
+                            <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-primary-50">
+                                    <i data-feather="heart" class="w-5 h-5 text-gray-600"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <div class="text-sm text-primary-600 font-medium mb-1">
+                                <?= htmlspecialchars($product['category_name'] ?? 'Uncategorized') ?></div>
+                            <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">
+                                <?= htmlspecialchars($product['name']) ?></h3>
+                            <div class="flex items-center justify-between">
+                                <span class="text-2xl font-bold text-gray-900">KSh
+                                    <?= number_format($product['price'], 2) ?></span>
+                                <div class="flex items-center text-yellow-400">
+                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                    <span class="text-gray-500 text-sm ml-1">(4.8)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php else: ?>
+            <div class="text-center py-12">
+                <i data-feather="package" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
+                <p class="text-gray-500">No products available yet</p>
+            </div>
+            <?php endif; ?>
+        </div>
+    </section>
+
+    <!-- New Arrivals Section -->
+    <section class="py-16 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">New Arrivals</h2>
+                <p class="text-lg text-gray-600">Fresh styles just added to our collection</p>
+            </div>
+
+            <?php if (!empty($productImages)): ?>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <?php foreach (array_slice($productImages, 0, 12) as $img): ?>
+                <div
+                    class="group aspect-square bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 overflow-hidden">
+                    <img src="assets/products/<?= htmlspecialchars($img) ?>" alt="New Arrival"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onerror="this.src='assets/images/placeholder.png'">
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php else: ?>
+            <div class="text-center py-12">
+                <i data-feather="image" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
+                <p class="text-gray-500">No new arrivals available</p>
+            </div>
+            <?php endif; ?>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <?php if (!empty($reviews)): ?>
+    <section class="py-16 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">What Our Customers Say</h2>
+                <p class="text-lg text-gray-600">Real feedback from real customers</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <?php foreach ($reviews as $review): ?>
+                <div class="bg-white rounded-2xl p-6 shadow-lg">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mr-4">
+                            <i data-feather="user" class="w-6 h-6 text-primary-600"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900"><?= htmlspecialchars($review['user_name']) ?></h4>
+                            <div class="flex items-center text-yellow-400">
                                 <?php for($i = 0; $i < 5; $i++): ?>
-                                <?php if ($i < $rev['rating']): ?>
-                                <!-- Filled Star -->
-                                <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.967a1 1 0 00.95.69h4.176c.969 0 1.371 1.24.588 1.81l-3.384 2.46a1 1 0 00-.364 1.118l1.287 3.966c.3.922-.755 1.688-1.54 1.118l-3.384-2.459a1 1 0 00-1.175 0l-3.384 2.46c-.785.57-1.84-.197-1.54-1.118l1.287-3.967a1 1 0 00-.364-1.118L2.05 9.394c-.783-.57-.38-1.81.588-1.81h4.176a1 1 0 00.95-.69l1.285-3.967z" />
-                                </svg>
-                                <?php else: ?>
-                                <!-- Empty Star -->
-                                <svg class="w-5 h-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.967a1 1 0 00.95.69h4.176c.969 0 1.371 1.24.588 1.81l-3.384 2.46a1 1 0 00-.364 1.118l1.287 3.966c.3.922-.755 1.688-1.54 1.118l-3.384-2.459a1 1 0 00-1.175 0l-3.384 2.46c-.785.57-1.84-.197-1.54-1.118l1.287-3.967a1 1 0 00-.364-1.118L2.05 9.394c-.783-.57-.38-1.81.588-1.81h4.176a1 1 0 00.95-.69l1.285-3.967z" />
-                                </svg>
-                                <?php endif; ?>
+                                <i data-feather="star" class="w-4 h-4 fill-current"></i>
                                 <?php endfor; ?>
                             </div>
                         </div>
-                        <?php endforeach;
-                        else: ?>
-                        <div class="min-w-full p-4 text-center text-gray-500">No customer reviews yet.</div>
-                        <?php endif; ?>
                     </div>
+                    <p class="text-gray-600 italic">"<?= htmlspecialchars($review['comment']) ?>"</p>
                 </div>
+                <?php endforeach; ?>
             </div>
-        </section>
+        </div>
+    </section>
+    <?php endif; ?>
 
-        <!-- Newsletter CTA -->
-        <section class="mt-10">
-            <div
-                class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-white p-8 flex flex-col md:flex-row items-center justify-between gap-4">
-                <div>
-                    <h4 class="text-2xl font-bold">Join our newsletter — get 10% off</h4>
-                    <p class="mt-2 text-white/90">Exclusive deals, new arrivals and members-only discounts.</p>
+    <!-- Newsletter Section -->
+    <section class="py-16 bg-gradient-to-r from-primary-500 to-pink-600">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Stay in the Loop</h2>
+            <p class="text-xl text-primary-100 mb-8">Get the latest updates on new arrivals, exclusive offers, and style
+                tips delivered to your inbox.</p>
+
+            <form action="newsletter.php" method="POST" class="max-w-md mx-auto">
+                <div class="flex">
+                    <input type="email" name="email" placeholder="Enter your email address" required
+                        class="flex-1 px-6 py-4 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-gray-900 placeholder-gray-500">
+                    <button type="submit"
+                        class="px-8 py-4 bg-white text-primary-600 font-semibold rounded-r-lg hover:bg-gray-50 transition-colors">
+                        Subscribe
+                    </button>
                 </div>
-                <form action="/subscribe.php" method="post" class="flex gap-2 w-full md:w-auto">
-                    <input type="email" name="email" placeholder="Enter your email" required
-                        class="px-4 py-2 rounded-lg text-gray-800 w-full md:w-80">
-                    <button class="px-4 py-2 bg-pink-400 text-gray-900 rounded-lg font-semibold">Subscribe</button>
-                </form>
-            </div>
-        </section>
-
-    </div> <!-- container -->
-
-    <!-- Footer CTA small -->
-    <div class="bg-white border-t">
-        <?php include __DIR__ . '/../includes/footer.php'; ?>
-    </div>
-
+                <p class="text-primary-100 text-sm mt-4">We respect your privacy. Unsubscribe at any time.</p>
+            </form>
+        </div>
+    </section>
 </main>
 
-<!-- ===== Styles & small animations ===== -->
-<style>
-@keyframes subtleFloat {
-    0% {
-        transform: translateY(0px);
-    }
-
-    50% {
-        transform: translateY(-6px);
-    }
-
-    100% {
-        transform: translateY(0px);
-    }
-}
-
-.float-slow {
-    animation: subtleFloat 6s ease-in-out infinite;
-}
-
-.scale-102 {
-    transform: scale(1.02);
-}
-
-.lazy {
-    opacity: 0;
-    transition: opacity .3s ease-in-out;
-}
-
-.lazy.loaded {
-    opacity: 1;
-}
-</style>
-
-<!-- ===== Lightweight JS: carousel, lazy-loading, mobile behaviours ===== -->
+<!-- JavaScript -->
 <script>
-/* HERO carousel */
-(function() {
-    const track = document.querySelector('#heroTrack');
-    const slides = Array.from(track.children);
-    const prev = document.getElementById('heroPrev');
-    const next = document.getElementById('heroNext');
-    const indicators = Array.from(document.querySelectorAll('[data-ind]'));
-    let idx = 0;
+// Hero Carousel
+let currentSlide = 0;
+const slides = document.querySelectorAll('.hero-slide');
+const indicators = document.querySelectorAll('.hero-indicator');
+const totalSlides = slides.length;
 
-    function update() {
-        track.style.transform = `translateX(${-idx * 100}%)`;
-        indicators.forEach((b, i) => b.classList.toggle('bg-white', i === idx));
-    }
-    prev && prev.addEventListener('click', () => {
-        idx = (idx - 1 + slides.length) % slides.length;
-        update();
+function showSlide(index) {
+    slides.forEach((slide, i) => {
+        slide.style.opacity = i === index ? '1' : '0';
     });
-    next && next.addEventListener('click', () => {
-        idx = (idx + 1) % slides.length;
-        update();
+    indicators.forEach((indicator, i) => {
+        indicator.classList.toggle('bg-white', i === index);
+        indicator.classList.toggle('bg-white/60', i !== index);
     });
-    indicators.forEach((b, i) => b.addEventListener('click', () => {
-        idx = i;
-        update();
-    }));
-    let auto = setInterval(() => {
-        idx = (idx + 1) % slides.length;
-        update();
-    }, 5000);
-    const hero = document.getElementById('heroTrack');
-    hero && hero.addEventListener('mouseenter', () => clearInterval(auto));
-    hero && hero.addEventListener('mouseleave', () => auto = setInterval(() => {
-        idx = (idx + 1) % slides.length;
-        update();
-    }, 5000));
-    update();
-    // keyboard
-    document.addEventListener('keydown', e => {
-        if (e.key === 'ArrowLeft') prev.click();
-        if (e.key === 'ArrowRight') next.click();
-    });
-})();
+}
 
-/* Testimonials rotate */
-(function() {
-    const tTrack = document.querySelector('[data-test-track]');
-    if (!tTrack) return;
-    const slides = tTrack.children;
-    let i = 0;
-    setInterval(() => {
-        i = (i + 1) % slides.length;
-        tTrack.style.transform = `translateX(${-i * 100}%)`;
-    }, 5000);
-})();
+function nextSlide() {
+    currentSlide = (currentSlide + 1) % totalSlides;
+    showSlide(currentSlide);
+}
 
-/* Lazy load images using IntersectionObserver */
-(function() {
-    const imgObserver = new IntersectionObserver((entries, obs) => {
-        entries.forEach(entry => {
-            if (!entry.isIntersecting) return;
-            const img = entry.target;
-            const src = img.dataset.src;
-            if (src) {
-                img.src = src;
-                img.onload = () => img.classList.add('loaded');
-            }
-            obs.unobserve(img);
-        });
-    }, {
-        rootMargin: '200px'
-    });
-    document.querySelectorAll('img.lazy').forEach(img => imgObserver.observe(img));
-})();
+function prevSlide() {
+    currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+    showSlide(currentSlide);
+}
 
-/* Mobile category toggle */
-(function() {
-    const catToggle = document.getElementById('catToggle');
-    const panel = document.getElementById('categoryPanel');
-    if (!catToggle || !panel) return;
-    catToggle.addEventListener('click', () => {
-        panel.classList.toggle('hidden');
+// Event listeners
+document.getElementById('nextSlide')?.addEventListener('click', nextSlide);
+document.getElementById('prevSlide')?.addEventListener('click', prevSlide);
+
+indicators.forEach((indicator, index) => {
+    indicator.addEventListener('click', () => {
+        currentSlide = index;
+        showSlide(currentSlide);
     });
-    // Hide on init for small screens
-    if (window.innerWidth < 1024) panel.classList.add('hidden');
-})();
+});
+
+// Auto-advance carousel
+if (totalSlides > 1) {
+    setInterval(nextSlide, 5000);
+}
+
+// Smooth scrolling for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+
+// Initialize Feather icons
+feather.replace();
 </script>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>

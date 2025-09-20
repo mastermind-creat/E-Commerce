@@ -1,89 +1,105 @@
 <?php
+// admin/dashboard.php - Modern Admin Dashboard
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once "../includes/db.php";
+require_once 'auth.php';
 
-// Fetch counts
-$productsCount = $pdo->query("SELECT COUNT(*) FROM products")->fetchColumn();
-$ordersCount = $pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+// Set page title
+$pageTitle = 'Admin Dashboard';
 
-// Correct sales sum: only include paid orders
-$salesSum = $pdo->query("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status='paid'")->fetchColumn();
+// Fetch dashboard statistics
+try {
+    // Basic counts
+    $productsCount = $pdo->query("SELECT COUNT(*) FROM products")->fetchColumn();
+    $ordersCount = $pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+    $customersCount = $pdo->query("SELECT COUNT(*) FROM users WHERE role='customer'")->fetchColumn();
+    $categoriesCount = $pdo->query("SELECT COUNT(*) FROM categories")->fetchColumn();
 
-$customersCount = $pdo->query("SELECT COUNT(*) FROM users WHERE role='customer'")->fetchColumn();
+    // Sales data
+    $totalSales = $pdo->query("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status='paid'")->fetchColumn();
+    $monthlySales = $pdo->query("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status='paid' AND created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)")->fetchColumn();
+    $todaySales = $pdo->query("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status='paid' AND DATE(created_at) = CURDATE()")->fetchColumn();
 
-// Chart Data: Sales by Status (bar chart)
-$statusStmt = $pdo->query("SELECT status, COUNT(*) as count FROM orders GROUP BY status");
-$statusData = $statusStmt->fetchAll(PDO::FETCH_KEY_PAIR); // status => count
-$statuses = array_keys($statusData);
-$statusCounts = array_values($statusData);
+    // Order status distribution
+    $orderStatusData = $pdo->query("
+        SELECT 
+            CASE 
+                WHEN order_status = 'pending' THEN 'Pending'
+                WHEN order_status = 'confirmed' THEN 'Confirmed'
+                WHEN order_status = 'shipped' THEN 'Shipped'
+                WHEN order_status = 'completed' THEN 'Completed'
+                WHEN order_status = 'cancelled' THEN 'Cancelled'
+                ELSE 'Unknown'
+            END as status,
+            COUNT(*) as count
+        FROM orders 
+        GROUP BY order_status
+    ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Chart Data: Payment Status (pie chart)
-$paymentStmt = $pdo->query("SELECT payment_status, COUNT(*) as count FROM orders GROUP BY payment_status");
-$paymentData = $paymentStmt->fetchAll(PDO::FETCH_ASSOC);
-$paymentLabels = [];
-$paymentCounts = [];
-foreach ($paymentData as $row) {
-    $paymentLabels[] = ucfirst(str_replace('_', ' ', $row['payment_status']));
-    $paymentCounts[] = (int)$row['count'];
+    // Payment status distribution
+    $paymentStatusData = $pdo->query("
+        SELECT 
+            CASE 
+                WHEN payment_status = 'pending' THEN 'Pending'
+                WHEN payment_status = 'paid' THEN 'Paid'
+                WHEN payment_status = 'failed' THEN 'Failed'
+                ELSE 'Unknown'
+            END as status,
+            COUNT(*) as count
+        FROM orders 
+        GROUP BY payment_status
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    // Recent orders
+    $recentOrders = $pdo->query("
+        SELECT o.*, u.name as customer_name 
+        FROM orders o 
+        LEFT JOIN users u ON o.user_id = u.id 
+        ORDER BY o.created_at DESC 
+        LIMIT 10
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    // Top selling products
+    $topProducts = $pdo->query("
+        SELECT p.name, p.price, SUM(oi.quantity) as total_sold, SUM(oi.subtotal) as total_revenue
+        FROM products p 
+        JOIN order_items oi ON p.id = oi.product_id 
+        JOIN orders o ON oi.order_id = o.id 
+        WHERE o.payment_status = 'paid'
+        GROUP BY p.id, p.name, p.price 
+        ORDER BY total_sold DESC 
+        LIMIT 5
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    // Monthly sales data for chart
+    $monthlySalesData = $pdo->query("
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m') as month,
+            SUM(total_amount) as sales
+        FROM orders 
+        WHERE payment_status = 'paid' 
+        AND created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY month ASC
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (Exception $e) {
+    $productsCount = $ordersCount = $customersCount = $categoriesCount = 0;
+    $totalSales = $monthlySales = $todaySales = 0;
+    $orderStatusData = $paymentStatusData = $recentOrders = $topProducts = $monthlySalesData = [];
 }
 
-// Pagination for Recent Orders
-$perPage = 10;
-$currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$offset = ($currentPage - 1) * $perPage;
+// Calculate growth percentages
+$lastMonthSales = $pdo->query("SELECT COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status='paid' AND created_at >= DATE_SUB(NOW(), INTERVAL 2 MONTH) AND created_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)")->fetchColumn();
+$salesGrowth = $lastMonthSales > 0 ? (($monthlySales - $lastMonthSales) / $lastMonthSales) * 100 : 0;
 
-// Total orders count for pagination
-$totalOrders = $pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn();
-$totalPages = ceil($totalOrders / $perPage);
+$lastMonthOrders = $pdo->query("SELECT COUNT(*) FROM orders WHERE created_at >= DATE_SUB(NOW(), INTERVAL 2 MONTH) AND created_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)")->fetchColumn();
+$currentMonthOrders = $pdo->query("SELECT COUNT(*) FROM orders WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)")->fetchColumn();
+$ordersGrowth = $lastMonthOrders > 0 ? (($currentMonthOrders - $lastMonthOrders) / $lastMonthOrders) * 100 : 0;
 
-// Fetch recent orders with pagination
-$stmt = $pdo->prepare("
-    SELECT o.*, u.name, u.email 
-    FROM orders o
-    LEFT JOIN users u ON o.user_id = u.id
-    ORDER BY o.created_at DESC
-    LIMIT :limit OFFSET :offset
-");
-$stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-$stmt->execute();
-$orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Pagination helper function
-function renderPagination($total, $currentPage, $perPage) {
-    if ($total <= $perPage) return '';
-    $totalPages = ceil($total / $perPage);
-    $html = "<div class='flex justify-center mt-4 space-x-2'>";
-    // Previous
-    if ($currentPage > 1) {
-        $prev = $currentPage - 1;
-        $html .= "<a href='?page=$prev' class='px-3 py-2 bg-gray-300 rounded hover:bg-gray-400 text-sm'>Previous</a>";
-    }
-    // Page numbers (simple: show up to 5 around current)
-    $start = max(1, $currentPage - 2);
-    $end = min($totalPages, $currentPage + 2);
-    if ($start > 1) $html .= "<a href='?page=1' class='px-3 py-2 bg-gray-300 rounded hover:bg-gray-400 text-sm'>1</a>";
-    if ($start > 2) $html .= "<span class='px-2 py-2 text-gray-500'>...</span>";
-    for ($i = $start; $i <= $end; $i++) {
-        $active = $i === $currentPage ? 'bg-blue-600 text-white' : 'bg-gray-300';
-        $html .= "<a href='?page=$i' class='px-3 py-2 $active rounded text-sm'>$i</a>";
-    }
-    if ($end < $totalPages - 1) $html .= "<span class='px-2 py-2 text-gray-500'>...</span>";
-    if ($end < $totalPages) $html .= "<a href='?page=$totalPages' class='px-3 py-2 bg-gray-300 rounded hover:bg-gray-400 text-sm'>$totalPages</a>";
-    // Next
-    if ($currentPage < $totalPages) {
-        $next = $currentPage + 1;
-        $html .= "<a href='?page=$next' class='px-3 py-2 bg-gray-300 rounded hover:bg-gray-400 text-sm'>Next</a>";
-    }
-    $html .= "</div>";
-    $showingFrom = ($currentPage - 1) * $perPage + 1;
-    $showingTo = min($currentPage * $perPage, $total);
-    $html = "<p class='text-xs sm:text-sm text-gray-600 mb-2 text-center'>Showing $showingFrom-$showingTo of $total orders</p>" . $html;
-    return $html;
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -91,242 +107,292 @@ function renderPagination($total, $currentPage, $perPage) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+    <title><?= $pageTitle ?> - Springs Store Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .stat-card:nth-child(2) {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .stat-card:nth-child(3) {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .stat-card:nth-child(4) {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    </style>
 </head>
 
-<body class="bg-gray-100 min-h-screen flex">
-
+<body class="bg-gray-100 min-h-screen">
+    <!-- Sidebar -->
     <?php include 'sidebar.php'; ?>
 
-    <main class="flex-1 p-3 sm:p-6 md:ml-64 transition-all duration-300">
-        <h1 class="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-gray-800">Dashboard Overview</h1>
+    <!-- Main Content -->
+    <main class="flex-1 p-6 lg:ml-64">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+            <p class="text-gray-600 mt-2">Welcome back! Here's what's happening with your store.</p>
+        </div>
 
         <!-- Stats Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
-            <div
-                class="bg-white rounded-xl shadow hover:shadow-xl transition-all duration-300 p-3 sm:p-6 flex items-center gap-2 sm:gap-4">
-                <i class="fa-solid fa-box text-xl sm:text-4xl text-blue-500 flex-shrink-0"></i>
-                <div class="min-w-0">
-                    <h3 class="text-gray-500 text-xs sm:text-sm truncate">Products</h3>
-                    <p class="text-lg sm:text-3xl font-bold text-blue-600 m-0"><?php echo $productsCount ?></p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card rounded-2xl p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm font-medium">Total Products</p>
+                        <p class="text-3xl font-bold"><?= number_format($productsCount) ?></p>
+                        <p class="text-white/80 text-sm mt-1">Active products</p>
+                    </div>
+                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-feather="package" class="w-6 h-6"></i>
+                    </div>
                 </div>
             </div>
 
-            <div
-                class="bg-white rounded-xl shadow hover:shadow-xl transition-all duration-300 p-3 sm:p-6 flex items-center gap-2 sm:gap-4">
-                <i class="fa-solid fa-cart-shopping text-xl sm:text-4xl text-green-500 flex-shrink-0"></i>
-                <div class="min-w-0">
-                    <h3 class="text-gray-500 text-xs sm:text-sm truncate">Orders</h3>
-                    <p class="text-lg sm:text-3xl font-bold text-green-600 m-0"><?php echo $ordersCount ?></p>
+            <div class="stat-card rounded-2xl p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm font-medium">Total Orders</p>
+                        <p class="text-3xl font-bold"><?= number_format($ordersCount) ?></p>
+                        <p class="text-white/80 text-sm mt-1">
+                            <?= $ordersGrowth >= 0 ? '+' : '' ?><?= number_format($ordersGrowth, 1) ?>% this month
+                        </p>
+                    </div>
+                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-feather="shopping-cart" class="w-6 h-6"></i>
+                    </div>
                 </div>
             </div>
 
-            <div
-                class="bg-white rounded-xl shadow hover:shadow-xl transition-all duration-300 p-3 sm:p-6 flex items-center gap-2 sm:gap-4">
-                <i class="fa-solid fa-money-bill-trend-up text-xl sm:text-4xl text-purple-500 flex-shrink-0"></i>
-                <div class="min-w-0">
-                    <h3 class="text-gray-500 text-xs sm:text-sm truncate">Sales</h3>
-                    <p class="text-lg sm:text-3xl font-bold text-purple-600 m-0">KSh
-                        <?php echo number_format($salesSum, 2) ?></p>
+            <div class="stat-card rounded-2xl p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm font-medium">Total Sales</p>
+                        <p class="text-3xl font-bold">KSh <?= number_format($totalSales, 0) ?></p>
+                        <p class="text-white/80 text-sm mt-1">
+                            <?= $salesGrowth >= 0 ? '+' : '' ?><?= number_format($salesGrowth, 1) ?>% this month
+                        </p>
+                    </div>
+                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-feather="dollar-sign" class="w-6 h-6"></i>
+                    </div>
                 </div>
             </div>
 
-            <div
-                class="bg-white rounded-xl shadow hover:shadow-xl transition-all duration-300 p-3 sm:p-6 flex items-center gap-2 sm:gap-4">
-                <i class="fa-solid fa-users text-xl sm:text-4xl text-orange-500 flex-shrink-0"></i>
-                <div class="min-w-0">
-                    <h3 class="text-gray-500 text-xs sm:text-sm truncate">Customers</h3>
-                    <p class="text-lg sm:text-3xl font-bold text-orange-600 m-0"><?php echo $customersCount ?></p>
+            <div class="stat-card rounded-2xl p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm font-medium">Customers</p>
+                        <p class="text-3xl font-bold"><?= number_format($customersCount) ?></p>
+                        <p class="text-white/80 text-sm mt-1">Registered users</p>
+                    </div>
+                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-feather="users" class="w-6 h-6"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Charts Section -->
-        <div class="mt-6 sm:mt-10 grid grid-cols-2 gap-3 sm:gap-6">
-            <div class="bg-white rounded-xl shadow p-2 sm:p-4 h-32 sm:h-48 max-h-48 flex flex-col overflow-hidden">
-                <h3 class="text-sm sm:text-lg font-semibold mb-1 sm:mb-3 text-gray-800 flex-shrink-0">Orders by Status
-                </h3>
-                <div class="relative w-full h-full flex-1">
-                    <canvas id="statusChart"></canvas>
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Sales Chart -->
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Sales Overview</h3>
+                <div class="h-64">
+                    <canvas id="salesChart"></canvas>
                 </div>
             </div>
-            <div class="bg-white rounded-xl shadow p-2 sm:p-4 h-32 sm:h-48 max-h-48 flex flex-col overflow-hidden">
-                <h3 class="text-sm sm:text-lg font-semibold mb-1 sm:mb-3 text-gray-800 flex-shrink-0">Payment Status
-                    Distribution</h3>
-                <div class="relative w-full h-full flex-1">
-                    <canvas id="paymentChart"></canvas>
+
+            <!-- Order Status Chart -->
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Order Status Distribution</h3>
+                <div class="h-64">
+                    <canvas id="orderStatusChart"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- Recent Orders Table -->
-        <div class="mt-6 sm:mt-10">
-            <h2 class="text-lg sm:text-2xl font-semibold mb-3 sm:mb-4 text-gray-800">Recent Orders</h2>
-            <div class="bg-white rounded-xl shadow overflow-x-auto">
-                <table class="min-w-full text-left">
-                    <thead class="bg-gray-50 text-gray-600 uppercase text-xs font-medium">
-                        <tr>
-                            <th class="p-1.5 sm:p-3 whitespace-nowrap">Order #</th>
-                            <th class="p-1.5 sm:p-3 whitespace-nowrap">Customer</th>
-                            <th class="p-1.5 sm:p-3 whitespace-nowrap">Total</th>
-                            <th class="p-1.5 sm:p-3 whitespace-nowrap">Status</th>
-                            <th class="p-1.5 sm:p-3 whitespace-nowrap">Payment</th>
-                            <th class="p-1.5 sm:p-3 whitespace-nowrap">Date</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-xs sm:text-sm">
-                        <?php if ($orders): ?>
-                        <?php foreach($orders as $o): ?>
-                        <tr class="border-t border-gray-100 hover:bg-gray-50 transition-all duration-200">
-                            <td class="p-1.5 sm:p-3 font-medium whitespace-nowrap">#<?php echo $o['id'] ?></td>
-                            <td class="p-1.5 sm:p-3">
-                                <div class="font-medium"><?php echo htmlspecialchars($o['customer_name'] ?? 'Guest') ?>
-                                </div>
-                                <div class="text-xs text-gray-500 truncate max-w-[120px] sm:max-w-none">
-                                    <?php echo htmlspecialchars($o['customer_email'] ?? 'N/A') ?></div>
-                            </td>
-                            <td class="p-1.5 sm:p-3 font-semibold text-gray-700 whitespace-nowrap">KSh
-                                <?php echo number_format($o['total_amount'], 2) ?></td>
-                            <td class="p-1.5 sm:p-3 whitespace-nowrap">
-                                <span class="px-2 py-1 text-xs rounded font-medium 
-                                    <?php 
-                                        switch ($o['status']) {
-                                            case 'Pending': echo 'bg-yellow-100 text-yellow-700'; break;
-                                            case 'Processing': echo 'bg-blue-100 text-blue-700'; break;
-                                            case 'Shipped': echo 'bg-indigo-100 text-indigo-700'; break;
-                                            case 'Completed': echo 'bg-green-100 text-green-700'; break;
-                                            case 'Cancelled': echo 'bg-red-100 text-red-700'; break;
-                                            default: echo 'bg-gray-100 text-gray-700';
-                                        }
-                                    ?>">
-                                    <?php echo htmlspecialchars($o['status']) ?>
-                                </span>
-                            </td>
-                            <td class="p-1.5 sm:p-3 whitespace-nowrap">
-                                <span
-                                    class="px-2 py-1 text-xs rounded font-medium 
-                                    <?php echo $o['payment_status']=='paid'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'; ?>">
-                                    <?php echo ucfirst($o['payment_status']) ?>
-                                </span>
-                            </td>
-                            <td class="p-1.5 sm:p-3 text-xs sm:text-sm whitespace-nowrap">
-                                <?php echo date("M d, Y H:i", strtotime($o['created_at'])) ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                        <?php else: ?>
-                        <tr>
-                            <td colspan="6" class="p-4 text-center text-gray-500 text-xs sm:text-sm">No recent orders
-                                found.</td>
-                        </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+        <!-- Bottom Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Recent Orders -->
+            <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900">Recent Orders</h3>
+                    <a href="orders.php" class="text-primary-600 hover:text-primary-700 text-sm font-medium">View
+                        all</a>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200">
+                                <th class="text-left py-3 px-2 font-medium text-gray-600">Order #</th>
+                                <th class="text-left py-3 px-2 font-medium text-gray-600">Customer</th>
+                                <th class="text-left py-3 px-2 font-medium text-gray-600">Amount</th>
+                                <th class="text-left py-3 px-2 font-medium text-gray-600">Status</th>
+                                <th class="text-left py-3 px-2 font-medium text-gray-600">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($recentOrders as $order): ?>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                <td class="py-3 px-2 font-medium text-gray-900">#<?= $order['id'] ?></td>
+                                <td class="py-3 px-2 text-gray-600">
+                                    <?= htmlspecialchars($order['customer_name'] ?? 'Guest') ?></td>
+                                <td class="py-3 px-2 font-medium text-gray-900">KSh
+                                    <?= number_format($order['total_amount'], 2) ?></td>
+                                <td class="py-3 px-2">
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                        <?= $order['order_status'] === 'completed' ? 'bg-green-100 text-green-800' : 
+                                           ($order['order_status'] === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                                           ($order['order_status'] === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800')) ?>">
+                                        <?= ucfirst($order['order_status']) ?>
+                                    </span>
+                                </td>
+                                <td class="py-3 px-2 text-gray-600">
+                                    <?= date('M j, Y', strtotime($order['created_at'])) ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <?= renderPagination($totalOrders, $currentPage, $perPage) ?>
+
+            <!-- Top Products -->
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-6">Top Selling Products</h3>
+
+                <div class="space-y-4">
+                    <?php foreach ($topProducts as $index => $product): ?>
+                    <div class="flex items-center space-x-3">
+                        <div
+                            class="w-8 h-8 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                            <?= $index + 1 ?>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">
+                                <?= htmlspecialchars($product['name']) ?></p>
+                            <p class="text-xs text-gray-600"><?= $product['total_sold'] ?> sold</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-semibold text-gray-900">KSh
+                                <?= number_format($product['total_revenue'], 0) ?></p>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
         </div>
 
+        <!-- Quick Actions -->
+        <div class="mt-8 bg-white rounded-2xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <a href="add_product.php"
+                    class="flex items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i data-feather="plus" class="w-5 h-5 mr-2 text-primary-600"></i>
+                    <span class="text-sm font-medium text-gray-700">Add Product</span>
+                </a>
+                <a href="categories.php"
+                    class="flex items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i data-feather="folder-plus" class="w-5 h-5 mr-2 text-primary-600"></i>
+                    <span class="text-sm font-medium text-gray-700">Add Category</span>
+                </a>
+                <a href="orders.php"
+                    class="flex items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i data-feather="shopping-cart" class="w-5 h-5 mr-2 text-primary-600"></i>
+                    <span class="text-sm font-medium text-gray-700">View Orders</span>
+                </a>
+                <a href="admin_hero.php"
+                    class="flex items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i data-feather="image" class="w-5 h-5 mr-2 text-primary-600"></i>
+                    <span class="text-sm font-medium text-gray-700">Manage Hero</span>
+                </a>
+            </div>
+        </div>
     </main>
 
+    <!-- JavaScript -->
     <script>
-    // Status Bar Chart
-    const statusCtx = document.getElementById('statusChart').getContext('2d');
-    new Chart(statusCtx, {
-        type: 'bar',
+    // Sales Chart
+    const salesCtx = document.getElementById('salesChart').getContext('2d');
+    const salesData = <?= json_encode($monthlySalesData) ?>;
+
+    new Chart(salesCtx, {
+        type: 'line',
         data: {
-            labels: <?php echo json_encode($statuses); ?>,
+            labels: salesData.map(item => item.month),
             datasets: [{
-                label: 'Order Count',
-                data: <?php echo json_encode($statusCounts); ?>,
-                backgroundColor: [
-                    'rgba(255, 193, 7, 0.8)', // yellow for Pending
-                    'rgba(59, 130, 246, 0.8)', // blue for Processing
-                    'rgba(99, 102, 241, 0.8)', // indigo for Shipped
-                    'rgba(34, 197, 94, 0.8)', // green for Completed
-                    'rgba(239, 68, 68, 0.8)' // red for Cancelled
-                ],
-                borderColor: [
-                    'rgba(255, 193, 7, 1)',
-                    'rgba(59, 130, 246, 1)',
-                    'rgba(99, 102, 241, 1)',
-                    'rgba(34, 197, 94, 1)',
-                    'rgba(239, 68, 68, 1)'
-                ],
-                borderWidth: 1
+                label: 'Sales (KSh)',
+                data: salesData.map(item => item.sales),
+                borderColor: 'rgb(236, 72, 153)',
+                backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                tension: 0.4,
+                fill: true
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: {
-                padding: 0
-            },
-            aspectRatio: 2,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        font: {
-                            size: 10
-                        }
-                    }
-                },
-                x: {
-                    ticks: {
-                        font: {
-                            size: 10
-                        },
-                        maxRotation: 45
-                    }
-                }
-            },
             plugins: {
                 legend: {
                     display: false
                 }
-            }
-        }
-    });
-
-    // Payment Pie Chart
-    const paymentCtx = document.getElementById('paymentChart').getContext('2d');
-    new Chart(paymentCtx, {
-        type: 'pie',
-        data: {
-            labels: <?php echo json_encode($paymentLabels); ?>,
-            datasets: [{
-                data: <?php echo json_encode($paymentCounts); ?>,
-                backgroundColor: [
-                    'rgba(34, 197, 94, 0.8)', // green for Paid
-                    'rgba(239, 68, 68, 0.8)' // red for others
-                ],
-                borderWidth: 2,
-                borderColor: '#fff'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: {
-                padding: 0
             },
-            aspectRatio: 1.2,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        font: {
-                            size: 9
-                        },
-                        padding: 8,
-                        usePointStyle: true
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'KSh ' + value.toLocaleString();
+                        }
                     }
                 }
             }
         }
     });
+
+    // Order Status Chart
+    const orderStatusCtx = document.getElementById('orderStatusChart').getContext('2d');
+    const orderStatusData = <?= json_encode($orderStatusData) ?>;
+
+    new Chart(orderStatusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: orderStatusData.map(item => item.status),
+            datasets: [{
+                data: orderStatusData.map(item => item.count),
+                backgroundColor: [
+                    '#fbbf24',
+                    '#3b82f6',
+                    '#10b981',
+                    '#ef4444',
+                    '#8b5cf6'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Initialize Feather icons
+    feather.replace();
     </script>
 </body>
 

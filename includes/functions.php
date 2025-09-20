@@ -42,6 +42,22 @@ function image_url(string $path): string {
     return asset_url($path);
 }
 
+/**
+ * Generate a root-relative URL specifically for product images stored in `public/assets/products/`.
+ * Accepts either a filename or a path under `assets/products/` and returns a leading-slash path.
+ * Falls back to the placeholder image when the argument is empty.
+ */
+function product_image_url(?string $filename): string {
+    $placeholder = 'assets/images/placeholder.png';
+    if (!$filename) return $placeholder;
+    $clean = ltrim($filename, '/');
+    // If the caller already passed a path under assets, normalize it
+    if (strpos($clean, 'assets/products/') === 0) {
+        return $clean;
+    }
+    return 'assets/products/' . $clean;
+}
+
 // ==================== PRICE FORMATTER ==================== //
 function format_price(?string $price): string {
     return $price ? 'From ' . htmlspecialchars($price) : '';

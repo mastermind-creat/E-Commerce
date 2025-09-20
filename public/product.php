@@ -1,270 +1,425 @@
 <?php
+// public/product.php - Advanced Product Detail Page
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/../includes/db.php';
 
-$id = intval($_GET['id'] ?? 0);
+$productId = intval($_GET['id'] ?? 0);
 
-// Fetch product
-$productStmt = $pdo->prepare('SELECT * FROM products WHERE id = ? AND status = "active"');
-$productStmt->execute([$id]);
-$p = $productStmt->fetch();
-
-if (!$p) {
+if (!$productId) {
     header('Location: index.php');
     exit;
 }
 
-// Fetch images
+// Fetch product details
+$productStmt = $pdo->prepare('
+    SELECT p.*, c.name as category_name, c.slug as category_slug 
+    FROM products p 
+    LEFT JOIN categories c ON p.category_id = c.id 
+    WHERE p.id = ? AND p.status = "active"
+');
+$productStmt->execute([$productId]);
+$product = $productStmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$product) {
+    header('Location: index.php');
+    exit;
+}
+
+// Fetch product images
 $imagesStmt = $pdo->prepare('SELECT * FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, id ASC');
-$imagesStmt->execute([$id]);
-$images = $imagesStmt->fetchAll();
+$imagesStmt->execute([$productId]);
+$images = $imagesStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch variants
-$variantsStmt = $pdo->prepare('SELECT * FROM product_variants WHERE product_id = ?');
-$variantsStmt->execute([$id]);
-$variants = $variantsStmt->fetchAll();
+// Fetch product variants
+$variantsStmt = $pdo->prepare('SELECT * FROM product_variants WHERE product_id = ? ORDER BY id ASC');
+$variantsStmt->execute([$productId]);
+$variants = $variantsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$baseStock = (int)$p['stock'];
+// Get related products
+$relatedStmt = $pdo->prepare('
+    SELECT p.*, pi.image_url 
+    FROM products p 
+    LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = 1
+    WHERE p.category_id = ? AND p.id != ? AND p.status = "active" 
+    ORDER BY RAND() 
+    LIMIT 4
+');
+$relatedStmt->execute([$product['category_id'], $productId]);
+$relatedProducts = $relatedStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get reviews
+$reviewsStmt = $pdo->prepare('
+    SELECT r.*, u.name as user_name 
+    FROM reviews r 
+    JOIN users u ON r.user_id = u.id 
+    WHERE r.product_id = ? 
+    ORDER BY r.created_at DESC 
+    LIMIT 10
+');
+$reviewsStmt->execute([$productId]);
+$reviews = $reviewsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Calculate average rating
+$avgRatingStmt = $pdo->prepare('SELECT AVG(rating) as avg_rating, COUNT(*) as total_reviews FROM reviews WHERE product_id = ?');
+$avgRatingStmt->execute([$productId]);
+$ratingData = $avgRatingStmt->fetch(PDO::FETCH_ASSOC);
+$avgRating = round((float)($ratingData['avg_rating'] ?? 0), 1);
+$totalReviews = (int)($ratingData['total_reviews'] ?? 0);
+
+// Set page title
+$pageTitle = $product['name'];
+
+include __DIR__ . '/../includes/header.php';
 ?>
-<!doctype html>
-<html lang="en">
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
-    <title><?= htmlspecialchars($p['name']); ?> | Shop</title>
-</head>
+<main class="min-h-screen bg-gray-50">
+    <!-- Breadcrumb -->
+    <div class="bg-white border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <nav class="flex items-center space-x-2 text-sm">
+                <a href="index.php" class="text-gray-500 hover:text-primary-600">Home</a>
+                <i data-feather="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                <a href="shop.php" class="text-gray-500 hover:text-primary-600">Shop</a>
+                <?php if ($product['category_slug']): ?>
+                <i data-feather="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                <a href="shop.php?category=<?= urlencode($product['category_slug']) ?>"
+                    class="text-gray-500 hover:text-primary-600">
+                    <?= htmlspecialchars($product['category_name']) ?>
+                </a>
+                <?php endif; ?>
+                <i data-feather="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                <span class="text-gray-900 font-medium"><?= htmlspecialchars($product['name']) ?></span>
+            </nav>
+        </div>
+    </div>
 
-<body class="bg-gray-50 text-gray-900">
-    <?php include __DIR__ . '/../includes/header.php'; ?>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <!-- Product Images -->
+            <div class="space-y-4">
+                <!-- Main Image -->
+                <div class="aspect-square bg-white rounded-2xl overflow-hidden shadow-lg">
+                    <?php if (!empty($images)): ?>
+                    <img id="mainImage" src="assets/products/<?= htmlspecialchars($images[0]['image_url']) ?>"
+                        alt="<?= htmlspecialchars($product['name']) ?>"
+                        class="w-full h-full object-cover cursor-zoom-in"
+                        onerror="this.src='assets/images/placeholder.png'">
+                    <?php else: ?>
+                    <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <i data-feather="image" class="w-16 h-16 text-gray-400"></i>
+                    </div>
+                    <?php endif; ?>
+                </div>
 
-    <div class="max-w-6xl mx-auto px-4 py-8">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-
-            <!-- Images -->
-            <div>
-                <?php $mainImage = $images[0]['image_url'] ?? 'placeholder.png'; ?>
-                <img id="mainImage" src="assets/products/<?= htmlspecialchars($mainImage) ?>"
-                    alt="<?= htmlspecialchars($p['name']) ?>" class="w-full h-96 object-cover rounded-2xl shadow-lg">
-
+                <!-- Thumbnail Images -->
                 <?php if (count($images) > 1): ?>
-                <div class="flex gap-3 mt-4 overflow-x-auto">
-                    <?php foreach ($images as $img): ?>
-                    <img src="assets/products/<?= htmlspecialchars($img['image_url']) ?>"
-                        class="w-20 h-20 object-cover rounded-lg border cursor-pointer hover:ring-2 hover:ring-pink-500 transition"
-                        onclick="document.getElementById('mainImage').src=this.src" alt="thumbnail">
+                <div class="grid grid-cols-4 gap-2">
+                    <?php foreach ($images as $index => $image): ?>
+                    <button
+                        class="thumbnail-btn aspect-square bg-white rounded-lg overflow-hidden border-2 <?= $index === 0 ? 'border-primary-500' : 'border-gray-200' ?> hover:border-primary-300 transition-colors"
+                        data-image="assets/products/<?= htmlspecialchars($image['image_url']) ?>">
+                        <img src="assets/products/<?= htmlspecialchars($image['image_url']) ?>"
+                            alt="Thumbnail <?= $index + 1 ?>" class="w-full h-full object-cover"
+                            onerror="this.src='assets/images/placeholder.png'">
+                    </button>
                     <?php endforeach; ?>
                 </div>
                 <?php endif; ?>
             </div>
 
             <!-- Product Details -->
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900"><?= htmlspecialchars($p['name']); ?></h1>
-                <p class="text-2xl text-pink-600 font-semibold mt-2 flex items-center gap-2">
-                    <i class='bx bx-purchase-tag'></i>
-                    KSh <?= number_format($p['price'], 2); ?>
-                </p>
+            <div class="space-y-6">
+                <!-- Product Info -->
+                <div>
+                    <div class="text-sm text-primary-600 font-medium mb-2">
+                        <?= htmlspecialchars($product['category_name'] ?? 'Uncategorized') ?></div>
+                    <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+                        <?= htmlspecialchars($product['name']) ?></h1>
 
-                <!-- Stock -->
-                <div class="mt-2 flex items-center gap-2">
-                    <p id="stockText"
-                        class="text-sm <?= $baseStock > 0 ? 'text-green-600' : 'text-red-600' ?> flex items-center gap-1">
-                        <i class='bx <?= $baseStock > 0 ? 'bx-check-circle' : 'bx-x-circle' ?>'></i>
-                        <span id="stockLabel"><?= $baseStock > 0 ? 'In stock:' : 'Out of stock' ?></span>
-                        <span id="stockCount"><?= $baseStock; ?></span>
-                    </p>
+                    <!-- Rating -->
+                    <div class="flex items-center space-x-2 mb-4">
+                        <div class="flex items-center">
+                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                            <i data-feather="star"
+                                class="w-5 h-5 <?= $i <= $avgRating ? 'text-yellow-400 fill-current' : 'text-gray-300' ?>"></i>
+                            <?php endfor; ?>
+                        </div>
+                        <span class="text-gray-600"><?= $avgRating ?> (<?= $totalReviews ?>
+                            review<?= $totalReviews !== 1 ? 's' : '' ?>)</span>
+                    </div>
+
+                    <!-- Price -->
+                    <div class="text-4xl font-bold text-gray-900 mb-6">KSh
+                        <?= number_format((float)($product['price'] ?? 0), 2) ?>
+                    </div>
+
+                    <!-- Stock Status -->
+                    <div class="mb-6">
+                        <?php $prodStock = (int)($product['stock'] ?? 0); ?>
+                        <?php if ($prodStock > 10): ?>
+                        <span
+                            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                            <i data-feather="check-circle" class="w-4 h-4 mr-1"></i>
+                            In Stock (<?= $prodStock ?> available)
+                        </span>
+                        <?php elseif ($prodStock > 0): ?>
+                        <span
+                            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                            <i data-feather="alert-triangle" class="w-4 h-4 mr-1"></i>
+                            Only <?= $prodStock ?> left in stock
+                        </span>
+                        <?php else: ?>
+                        <span
+                            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                            <i data-feather="x-circle" class="w-4 h-4 mr-1"></i>
+                            Out of Stock
+                        </span>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
-                <form id="addToCartForm" action="add_to_cart.php" method="post" class="mt-6 space-y-4">
-                    <input type="hidden" name="product_id" value="<?= (int)$p['id']; ?>">
+                <!-- Product Description -->
+                <div class="prose max-w-none">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Description</h3>
+                    <p class="text-gray-600 leading-relaxed"><?= nl2br(htmlspecialchars($product['description'])) ?></p>
+                </div>
 
-                    <!-- Variants -->
-                    <?php if (!empty($variants)): ?>
+                <!-- Variants -->
+                <?php if (!empty($variants)): ?>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Available Options</h3>
                     <div class="space-y-4">
-                        <?php 
-                            $grouped = [];
-                            foreach ($variants as $v) {
-                                $grouped[$v['variant_name']][] = $v;
-                            }
-                            ?>
-
-                        <?php foreach ($grouped as $name => $items): ?>
-                        <div>
-                            <label class="block font-semibold mb-1"><?= htmlspecialchars($name) ?>:</label>
-                            <div class="flex flex-wrap gap-3">
-                                <?php foreach ($items as $v): 
-                                            $outOfStock = (int)$v['variant_stock'] <= 0;
-                                        ?>
-                                <div class="variant-wrapper">
-                                    <input type="radio" name="variant_id" value="<?= (int)$v['id']; ?>"
-                                        data-stock="<?= (int)$v['variant_stock']; ?>" class="hidden variant-input"
-                                        <?= $outOfStock ? 'disabled' : ''; ?>>
-                                    <div
-                                        class="variant-card px-4 py-2 border rounded-lg flex items-center gap-2 cursor-pointer transition
-                                                <?= $outOfStock ? 'opacity-50 cursor-not-allowed bg-gray-200' : 'hover:border-pink-500 hover:text-pink-600'; ?>">
-                                        <?php if (!empty($v['image'])): ?>
-                                        <img src="assets/products/<?= htmlspecialchars($v['image']) ?>" alt="variant"
-                                            class="w-8 h-8 object-cover rounded border">
+                        <?php foreach ($variants as $variant): ?>
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">
+                                        <?= htmlspecialchars($variant['color'] ?? 'Color') ?>
+                                        <?php if (!empty($variant['size'])): ?>
+                                        - <?= htmlspecialchars($variant['size']) ?>
                                         <?php endif; ?>
-                                        <span><?= htmlspecialchars($v['variant_value']); ?></span>
-                                        <?php if ($outOfStock): ?>
-                                        <span class="ml-1 text-xs text-red-600 font-semibold">(Sold Out)</span>
-                                        <?php endif; ?>
-                                    </div>
+                                    </h4>
+                                    <p class="text-sm text-gray-600">Stock: <?= (int)($variant['stock'] ?? 0) ?></p>
                                 </div>
-                                <?php endforeach; ?>
+                                <div class="text-right">
+                                    <div class="text-lg font-semibold text-gray-900">
+                                        <?php $extra = (float)($variant['extra_price'] ?? 0); ?>
+                                        KSh <?= number_format(((float)($product['price'] ?? 0)) + $extra, 2) ?>
+                                    </div>
+                                    <?php if ($extra > 0): ?>
+                                    <div class="text-sm text-gray-500">+KSh
+                                        <?= number_format($extra, 2) ?></div>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
                         <?php endforeach; ?>
                     </div>
-                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
 
-                    <!-- Quantity -->
-                    <div>
-                        <label class="block font-semibold mb-1">Quantity</label>
-                        <div class="flex items-center gap-2">
-                            <button type="button" id="qtyDecrease"
-                                class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">−</button>
-                            <input id="qtyInput" name="quantity" type="number"
-                                class="w-20 border rounded text-center p-1" value="1" min="1" step="1">
-                            <button type="button" id="qtyIncrease"
-                                class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">+</button>
-                            <div id="qtyError" class="text-sm text-red-600 ml-3 hidden"></div>
+                <!-- Add to Cart Form -->
+                <form action="add_to_cart.php" method="POST" class="space-y-4">
+                    <input type="hidden" name="product_id" value="<?= $product['id'] ?>">
+
+                    <div class="flex items-center space-x-4">
+                        <label for="quantity" class="text-sm font-medium text-gray-700">Quantity:</label>
+                        <div class="flex items-center border border-gray-300 rounded-lg">
+                            <button type="button" id="decreaseQty" class="p-2 hover:bg-gray-100">
+                                <i data-feather="minus" class="w-4 h-4"></i>
+                            </button>
+                            <input type="number" id="quantity" name="quantity" value="1" min="1" max="<?= $prodStock ?>"
+                                class="w-16 text-center border-0 focus:ring-0">
+                            <button type="button" id="increaseQty" class="p-2 hover:bg-gray-100">
+                                <i data-feather="plus" class="w-4 h-4"></i>
+                            </button>
                         </div>
                     </div>
 
-                    <div>
-                        <button type="submit" id="addToCartBtn"
-                            class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-lg shadow flex items-center justify-center gap-2">
-                            <i class='bx bx-cart-add text-xl'></i> Add to Cart
+                    <div class="flex space-x-4">
+                        <button type="submit"
+                            class="flex-1 bg-primary-500 text-white py-4 px-6 rounded-lg font-semibold hover:bg-primary-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            <?= $prodStock == 0 ? 'disabled' : '' ?>>
+                            <i data-feather="shopping-cart" class="w-5 h-5 mr-2 inline"></i>
+                            <?= $prodStock > 0 ? 'Add to Cart' : 'Out of Stock' ?>
+                        </button>
+                        <button type="button"
+                            class="px-6 py-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            <i data-feather="heart" class="w-5 h-5"></i>
                         </button>
                     </div>
                 </form>
 
-                <!-- Description -->
-                <div class="mt-8">
-                    <h2 class="text-lg font-semibold mb-2 flex items-center gap-2">
-                        <i class='bx bx-info-circle'></i> Product Description
-                    </h2>
-                    <p class="text-gray-700 leading-relaxed"><?= nl2br(htmlspecialchars($p['description'])); ?></p>
+                <!-- Product Features -->
+                <div class="border-t pt-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Product Features</h3>
+                    <ul class="space-y-2 text-gray-600">
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            High quality materials
+                        </li>
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Fast and secure delivery
+                        </li>
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            30-day return policy
+                        </li>
+                        <li class="flex items-center">
+                            <i data-feather="check" class="w-4 h-4 text-green-500 mr-2"></i>
+                            Customer support
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>
+
+        <!-- Reviews Section -->
+        <?php if (!empty($reviews)): ?>
+        <div class="mt-16">
+            <h2 class="text-2xl font-bold text-gray-900 mb-8">Customer Reviews</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <?php foreach ($reviews as $review): ?>
+                <div class="bg-white rounded-lg p-6 shadow-sm border">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-3">
+                            <i data-feather="user" class="w-5 h-5 text-primary-600"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900"><?= htmlspecialchars($review['user_name']) ?></h4>
+                            <div class="flex items-center">
+                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                <i data-feather="star"
+                                    class="w-4 h-4 <?= $i <= $review['rating'] ? 'text-yellow-400 fill-current' : 'text-gray-300' ?>"></i>
+                                <?php endfor; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-gray-600"><?= htmlspecialchars($review['comment']) ?></p>
+                    <div class="text-sm text-gray-500 mt-2"><?= date('M j, Y', strtotime($review['created_at'])) ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Related Products -->
+        <?php if (!empty($relatedProducts)): ?>
+        <div class="mt-16">
+            <h2 class="text-2xl font-bold text-gray-900 mb-8">You Might Also Like</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <?php foreach ($relatedProducts as $related): ?>
+                <div
+                    class="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden">
+                    <a href="product.php?id=<?= $related['id'] ?>" class="block">
+                        <div class="relative overflow-hidden">
+                            <img src="<?= $related['image_url'] ? 'assets/products/' . htmlspecialchars($related['image_url']) : 'assets/images/placeholder.png' ?>"
+                                alt="<?= htmlspecialchars($related['name']) ?>"
+                                class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                                onerror="this.src='assets/images/placeholder.png'">
+                        </div>
+                        <div class="p-4">
+                            <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">
+                                <?= htmlspecialchars($related['name']) ?></h3>
+                            <div class="flex items-center justify-between">
+                                <span class="text-lg font-bold text-gray-900">KSh
+                                    <?= number_format($related['price'], 2) ?></span>
+                                <div class="flex items-center text-yellow-400">
+                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
+                                    <span class="text-gray-500 text-sm ml-1">(4.8)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
+</main>
 
-    <?php include __DIR__ . '/../includes/footer.php'; ?>
+<!-- Image Modal -->
+<div id="imageModal" class="fixed inset-0 bg-black bg-opacity-75 z-50 hidden flex items-center justify-center p-4">
+    <div class="relative max-w-4xl max-h-full">
+        <button id="closeModal" class="absolute top-4 right-4 text-white hover:text-gray-300 z-10">
+            <i data-feather="x" class="w-8 h-8"></i>
+        </button>
+        <img id="modalImage" src="" alt="" class="max-w-full max-h-full object-contain">
+    </div>
+</div>
 
-    <script>
-    (() => {
-        let baseStock = <?= $baseStock ?>;
-        let maxStock = baseStock;
+<!-- JavaScript -->
+<script>
+// Image gallery functionality
+const mainImage = document.getElementById('mainImage');
+const thumbnailBtns = document.querySelectorAll('.thumbnail-btn');
+const imageModal = document.getElementById('imageModal');
+const modalImage = document.getElementById('modalImage');
+const closeModal = document.getElementById('closeModal');
 
-        const stockCountEl = document.getElementById('stockCount');
-        const stockLabelEl = document.getElementById('stockLabel');
-        const qtyInput = document.getElementById('qtyInput');
-        const decreaseBtn = document.getElementById('qtyDecrease');
-        const increaseBtn = document.getElementById('qtyIncrease');
-        const addBtn = document.getElementById('addToCartBtn');
-        const qtyError = document.getElementById('qtyError');
+// Thumbnail click handler
+thumbnailBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const imageSrc = btn.dataset.image;
+        mainImage.src = imageSrc;
 
-        const minQty = 1;
+        // Update active thumbnail
+        thumbnailBtns.forEach(b => b.classList.remove('border-primary-500'));
+        thumbnailBtns.forEach(b => b.classList.add('border-gray-200'));
+        btn.classList.remove('border-gray-200');
+        btn.classList.add('border-primary-500');
+    });
+});
 
-        function intVal(v, fallback = 0) {
-            const n = parseInt(String(v).replace(/[^\d-]/g, ''), 10);
-            return Number.isNaN(n) ? fallback : n;
-        }
+// Main image click to open modal
+mainImage.addEventListener('click', () => {
+    modalImage.src = mainImage.src;
+    imageModal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+});
 
-        function updateControls() {
-            let qty = intVal(qtyInput.value, minQty);
-            if (qty < minQty) qty = minQty;
+// Close modal
+closeModal.addEventListener('click', () => {
+    imageModal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+});
 
-            if (maxStock <= 0) {
-                qtyInput.value = 0;
-                qtyInput.disabled = true;
-                decreaseBtn.disabled = true;
-                increaseBtn.disabled = true;
-                addBtn.disabled = true;
-                addBtn.classList.add('opacity-60', 'cursor-not-allowed');
-                stockLabelEl.textContent = 'Out of stock';
-                stockCountEl.textContent = 0;
-                return;
-            }
+// Close modal on background click
+imageModal.addEventListener('click', (e) => {
+    if (e.target === imageModal) {
+        imageModal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+});
 
-            qtyInput.disabled = false;
-            addBtn.disabled = false;
-            addBtn.classList.remove('opacity-60', 'cursor-not-allowed');
-            stockLabelEl.textContent = 'In stock:';
+// Quantity controls
+const quantityInput = document.getElementById('quantity');
+const decreaseBtn = document.getElementById('decreaseQty');
+const increaseBtn = document.getElementById('increaseQty');
 
-            if (qty > maxStock) {
-                qty = maxStock;
-                qtyError.textContent = 'Max available is ' + maxStock;
-                qtyError.classList.remove('hidden');
-            } else {
-                qtyError.classList.add('hidden');
-            }
+decreaseBtn.addEventListener('click', () => {
+    const currentValue = parseInt(quantityInput.value);
+    if (currentValue > 1) {
+        quantityInput.value = currentValue - 1;
+    }
+});
 
-            qtyInput.value = qty;
-            decreaseBtn.disabled = qty <= minQty;
-            increaseBtn.disabled = qty >= maxStock;
-            stockCountEl.textContent = maxStock;
-        }
+increaseBtn.addEventListener('click', () => {
+    const currentValue = parseInt(quantityInput.value);
+    const maxValue = parseInt(quantityInput.max);
+    if (currentValue < maxValue) {
+        quantityInput.value = currentValue + 1;
+    }
+});
 
-        document.querySelectorAll('.variant-card').forEach(card => {
-            card.addEventListener('click', () => {
-                const input = card.parentElement.querySelector('.variant-input');
-                if (input.disabled) return;
+// Initialize Feather icons
+feather.replace();
+</script>
 
-                // Toggle variant selection
-                if (input.checked) {
-                    input.checked = false;
-                    card.classList.remove('ring-2', 'ring-pink-500', 'border-pink-500',
-                        'text-pink-600');
-                    maxStock = baseStock; // reset to base product stock
-                } else {
-                    document.querySelectorAll('.variant-input').forEach(i => i.checked = false);
-                    document.querySelectorAll('.variant-card').forEach(c =>
-                        c.classList.remove('ring-2', 'ring-pink-500', 'border-pink-500',
-                            'text-pink-600'));
-                    input.checked = true;
-                    card.classList.add('ring-2', 'ring-pink-500', 'border-pink-500',
-                        'text-pink-600');
-
-                    // ✅ Use variant stock directly, do NOT add to base stock
-                    maxStock = intVal(input.dataset.stock, 0);
-                }
-                updateControls();
-            });
-        });
-
-        decreaseBtn.addEventListener('click', () => {
-            qtyInput.value = Math.max(minQty, intVal(qtyInput.value) - 1);
-            updateControls();
-        });
-        increaseBtn.addEventListener('click', () => {
-            qtyInput.value = Math.min(maxStock, intVal(qtyInput.value) + 1);
-            updateControls();
-        });
-        qtyInput.addEventListener('input', updateControls);
-
-        document.getElementById('addToCartForm').addEventListener('submit', function(e) {
-            const qty = intVal(qtyInput.value, 0);
-            if (maxStock <= 0 || qty < 1 || qty > maxStock) {
-                e.preventDefault();
-                alert('Invalid quantity or product out of stock.');
-            }
-        });
-
-        updateControls();
-    })();
-    </script>
-
-
-</body>
-
-</html>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

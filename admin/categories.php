@@ -44,6 +44,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
     <title>Manage Categories</title>
 </head>
 
@@ -59,18 +60,24 @@ try {
 
             <!-- Success / Error messages -->
             <?php if ($success): ?>
-            <div class="bg-green-100 border border-green-300 text-green-800 px-4 py-2 rounded-lg mb-4">
-                <?= $success ?>
+            <div
+                class="flex items-start gap-3 bg-green-100 border border-green-300 text-green-800 px-4 py-2 rounded-lg mb-4">
+                <i data-feather="check-circle" class="w-5 h-5 text-green-700 mt-0.5"></i>
+                <div><?= $success ?></div>
             </div>
             <?php elseif ($error): ?>
-            <div class="bg-red-100 border border-red-300 text-red-800 px-4 py-2 rounded-lg mb-4"><?= $error ?></div>
+            <div class="flex items-start gap-3 bg-red-100 border border-red-300 text-red-800 px-4 py-2 rounded-lg mb-4">
+                <i data-feather="x-circle" class="w-5 h-5 text-red-700 mt-0.5"></i>
+                <div><?= $error ?></div>
+            </div>
             <?php endif; ?>
 
             <!-- Two column layout -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Add Category Form -->
                 <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-lg font-semibold mb-4 text-gray-700">➕ Add New Category</h2>
+                    <h2 class="flex items-center gap-3 text-lg font-semibold mb-4 text-gray-700"><i
+                            data-feather="plus-circle" class="w-5 h-5 text-primary-600"></i> Add New Category</h2>
                     <form method="POST" class="space-y-4">
                         <div>
                             <label class="block mb-1 font-medium text-gray-600">Category Name</label>
@@ -87,7 +94,8 @@ try {
 
                 <!-- Categories Table -->
                 <div class="bg-white p-6 rounded-xl shadow-md overflow-x-auto">
-                    <h2 class="text-lg font-semibold mb-4 text-gray-700">📂 All Categories</h2>
+                    <h2 class="flex items-center gap-3 text-lg font-semibold mb-4 text-gray-700"><i
+                            data-feather="folder" class="w-5 h-5 text-gray-600"></i> All Categories</h2>
                     <table class="min-w-full border border-gray-200 rounded-lg overflow-hidden text-sm md:text-base">
                         <thead>
                             <tr class="bg-gray-100 text-gray-700">
@@ -109,8 +117,10 @@ try {
                                 <td class="p-2 md:p-3 text-center">
                                     <a href="categories.php?delete=<?= $cat['id'] ?>"
                                         onclick="return confirm('Are you sure you want to delete this category?')"
-                                        class="bg-red-500 text-white px-3 py-1 rounded-lg shadow hover:bg-red-600 transition">
-                                        🗑️ Delete
+                                        class="inline-flex items-center gap-2 bg-red-500 text-white px-3 py-1 rounded-lg shadow hover:bg-red-600 transition"
+                                        aria-label="Delete category <?= htmlspecialchars($cat['name']) ?>">
+                                        <i data-feather="trash-2" class="w-4 h-4"></i>
+                                        <span class="hidden sm:inline">Delete</span>
                                     </a>
                                 </td>
                             </tr>
@@ -129,3 +139,14 @@ try {
 </body>
 
 </html>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof feather !== 'undefined') {
+        try {
+            feather.replace();
+        } catch (e) {
+            /* ignore */
+        }
+    }
+});
+</script>

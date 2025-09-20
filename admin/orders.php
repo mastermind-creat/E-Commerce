@@ -1,524 +1,525 @@
 <?php
-require_once __DIR__ . '/../includes/db.php';
+// admin/orders.php - Enhanced Order Management
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+require_once '../includes/db.php';
 require_once 'auth.php';
 
+// Set page title
+$pageTitle = 'Order Management';
 
 $error = "";
-$perPage = 10; // Orders per page
-$currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$offset = ($currentPage - 1) * $perPage;
-$filter = isset($_GET['filter']) ? $_GET['filter'] : 'All';
+$success = "";
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['order_id'], $_POST['status'])) {
     $order_id = (int) $_POST['order_id'];
-    $status   = $_POST['status'];
-
-    $stmt = $pdo->prepare("SELECT status FROM orders WHERE id=?");
+    $status = $_POST['status'];
+    $notes = trim($_POST['notes'] ?? '');
+    
+    try {
+    $stmt = $pdo->prepare("SELECT COALESCE(order_status, status) as current_status FROM orders WHERE id=?");
     $stmt->execute([$order_id]);
     $current_status = $stmt->fetchColumn();
 
-    if (!$current_status) {
-        $error = "Order not found.";
-    } elseif (in_array($current_status, ['Completed', 'Cancelled'])) {
-        $error = "Order #$order_id is already $current_status. Changes not allowed.";
-    } else {
-        if ($status === 'Completed') {
-            $stmt = $pdo->prepare("UPDATE orders SET status=?, payment_status='Paid' WHERE id=?");
-            $stmt->execute([$status, $order_id]);
-        } elseif ($status === 'Cancelled') {
-            $stmt = $pdo->prepare("UPDATE orders SET status=?, payment_status='Failed' WHERE id=?");
-            $stmt->execute([$status, $order_id]);
+        if (!$current_status) {
+            $error = "Order not found.";
+        } elseif (in_array(strtolower($current_status), ['completed', 'cancelled'])) {
+            $error = "Order #$order_id is already $current_status. Changes not allowed.";
         } else {
-            $stmt = $pdo->prepare("UPDATE orders SET status=? WHERE id=?");
-            $stmt->execute([$status, $order_id]);
+            // Update both `order_status` and legacy `status` columns so public pages reflect the change
+            if (strtolower($status) === 'completed') {
+                $stmt = $pdo->prepare("UPDATE orders SET order_status=?, status=?, payment_status='paid', updated_at=NOW() WHERE id=?");
+                $stmt->execute([$status, $status, $order_id]);
+                $success = "Order #$order_id marked as completed and payment confirmed.";
+            } elseif (strtolower($status) === 'cancelled') {
+                $stmt = $pdo->prepare("UPDATE orders SET order_status=?, status=?, payment_status='failed', updated_at=NOW() WHERE id=?");
+                $stmt->execute([$status, $status, $order_id]);
+                $success = "Order #$order_id has been cancelled.";
+            } else {
+                $stmt = $pdo->prepare("UPDATE orders SET order_status=?, status=?, updated_at=NOW() WHERE id=?");
+                $stmt->execute([$status, $status, $order_id]);
+                $success = "Order #$order_id status updated to " . ucfirst($status) . ".";
+            }
+
+            // Log status change
+            if ($notes) {
+                $logStmt = $pdo->prepare("INSERT INTO order_notes (order_id, note, created_at) VALUES (?, ?, NOW())");
+                $logStmt->execute([$order_id, $notes]);
+            }
+            
+            // Refresh the page to show updated status
+            header("Location: " . $_SERVER['PHP_SELF'] . "?" . http_build_query($_GET));
+            exit;
         }
+    } catch (Exception $e) {
+        $error = "Failed to update order: " . $e->getMessage();
     }
 }
 
-// Fetch Active Orders with filter and pagination
-$activeWhere = "status NOT IN ('Completed','Cancelled')";
-$activeParams = [];
-$activeBindings = [];
-if ($filter !== 'All') {
-    $activeWhere .= " AND status = :filter";
-    $activeBindings[':filter'] = $filter;
-}
-$countStmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE $activeWhere");
-if (!empty($activeBindings)) {
-    $countStmt->execute($activeBindings);
-} else {
-    $countStmt->execute();
-}
-$totalActive = $countStmt->fetchColumn();
+// Get filter parameters
+$filter = $_GET['filter'] ?? 'all';
+$search = trim($_GET['search'] ?? '');
+$dateFrom = $_GET['date_from'] ?? '';
+$dateTo = $_GET['date_to'] ?? '';
+$page = max(1, intval($_GET['page'] ?? 1));
+$perPage = 15;
 
-$stmt = $pdo->prepare("SELECT * FROM orders WHERE $activeWhere ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
-// Bind filter if present
-foreach ($activeBindings as $key => $value) {
-    $stmt->bindValue($key, $value);
-}
-// Always bind LIMIT and OFFSET as integers
-$stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-$stmt->execute();
-$activeOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Build WHERE clause
+$whereConditions = [];
+$params = [];
 
-// Active statuses for filter
-$activeStatuses = ['All', 'Pending', 'Processing', 'Shipped'];
-
-// Fetch Order History with filter and pagination
-$historyWhere = "status IN ('Completed','Cancelled')";
-$historyParams = [];
-$historyBindings = [];
-if ($filter !== 'All') {
-    $historyWhere .= " AND status = :filter";
-    $historyBindings[':filter'] = $filter;
-}
-$countStmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE $historyWhere");
-if (!empty($historyBindings)) {
-    $countStmt->execute($historyBindings);
-} else {
-    $countStmt->execute();
-}
-$totalHistory = $countStmt->fetchColumn();
-
-$stmt = $pdo->prepare("SELECT * FROM orders WHERE $historyWhere ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
-// Bind filter if present
-foreach ($historyBindings as $key => $value) {
-    $stmt->bindValue($key, $value);
-}
-// Always bind LIMIT and OFFSET as integers
-$stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-$stmt->execute();
-$historyOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// History statuses for filter
-$historyStatuses = ['All', 'Completed', 'Cancelled'];
-
-// If request for order items (AJAX)
-if (isset($_GET['fetch_items']) && isset($_GET['order_id'])) {
-    $stmt = $pdo->prepare("
-        SELECT oi.id, oi.quantity, oi.price, oi.subtotal,
-               p.name AS product_name,
-               v.name AS variant_name
-        FROM order_items oi
-        LEFT JOIN products p ON oi.product_id = p.id
-        LEFT JOIN variants v ON oi.variant_id = v.id
-        WHERE oi.order_id = ?
-    ");
-    $stmt->execute([$_GET['order_id']]);
-    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-    exit;
+if ($filter !== 'all') {
+    $whereConditions[] = "o.order_status = :filter";
+    $params[':filter'] = $filter;
 }
 
-// Helper for status colors
-function statusBadge($status) {
-    $classes = [
-        'Pending' => 'bg-yellow-100 text-yellow-800',
-        'Processing' => 'bg-blue-100 text-blue-800',
-        'Shipped' => 'bg-indigo-100 text-indigo-800',
-        'Completed' => 'bg-green-100 text-green-800',
-        'Cancelled' => 'bg-red-100 text-red-800'
-    ];
-    $class = $classes[$status] ?? 'bg-gray-100 text-gray-800';
-    return "<span class='px-2 py-1 rounded text-xs font-semibold $class'>$status</span>";
+if (!empty($search)) {
+    $whereConditions[] = "(o.id LIKE :search OR o.customer_name LIKE :search OR o.customer_email LIKE :search)";
+    $params[':search'] = "%$search%";
 }
 
-// Pagination helper
-function renderPagination($total, $currentPage, $perPage, $filter, $section) {
-    if ($total <= $perPage) return '';
-    $totalPages = ceil($total / $perPage);
-    $queryString = http_build_query(['filter' => $filter]);
-    $html = "<div class='flex justify-center mt-4 space-x-2'>";
-    // Previous
-    if ($currentPage > 1) {
-        $prev = $currentPage - 1;
-        $html .= "<a href='?{$queryString}&page=$prev' class='px-3 py-2 bg-gray-300 rounded'>Previous</a>";
-    }
-    // Page numbers (show 1, current-2 to current+2, last if needed)
-    $start = max(1, $currentPage - 2);
-    $end = min($totalPages, $currentPage + 2);
-    if ($start > 1) $html .= "<a href='?{$queryString}&page=1' class='px-3 py-2 bg-gray-300 rounded'>1</a>";
-    if ($start > 2) $html .= "<span>...</span>";
-    for ($i = $start; $i <= $end; $i++) {
-        $active = $i === $currentPage ? 'bg-blue-600 text-white' : 'bg-gray-300';
-        $html .= "<a href='?{$queryString}&page=$i' class='px-3 py-2 $active rounded'>$i</a>";
-    }
-    if ($end < $totalPages - 1) $html .= "<span>...</span>";
-    if ($end < $totalPages) $html .= "<a href='?{$queryString}&page=$totalPages' class='px-3 py-2 bg-gray-300 rounded'>$totalPages</a>";
-    // Next
-    if ($currentPage < $totalPages) {
-        $next = $currentPage + 1;
-        $html .= "<a href='?{$queryString}&page=$next' class='px-3 py-2 bg-gray-300 rounded'>Next</a>";
-    }
-    $html .= "</div>";
-    $showingFrom = ($currentPage - 1) * $perPage + 1;
-    $showingTo = min($currentPage * $perPage, $total);
-    $html = "<p class='text-sm text-gray-600 mb-2'>Showing $showingFrom-$showingTo of $total $section orders</p>" . $html;
-    return $html;
+if (!empty($dateFrom)) {
+    $whereConditions[] = "DATE(o.created_at) >= :date_from";
+    $params[':date_from'] = $dateFrom;
 }
+
+if (!empty($dateTo)) {
+    $whereConditions[] = "DATE(o.created_at) <= :date_to";
+    $params[':date_to'] = $dateTo;
+}
+
+$whereClause = !empty($whereConditions) ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
+
+// Get total count
+$countQuery = "SELECT COUNT(*) FROM orders o $whereClause";
+$countStmt = $pdo->prepare($countQuery);
+foreach ($params as $key => $value) {
+    $countStmt->bindValue($key, $value);
+}
+$countStmt->execute();
+$totalOrders = $countStmt->fetchColumn();
+$totalPages = ceil($totalOrders / $perPage);
+
+// Get orders with pagination
+$offset = ($page - 1) * $perPage;
+$ordersQuery = "
+    SELECT o.*, 
+           (SELECT COUNT(*) FROM order_items WHERE order_id = o.id) as item_count
+    FROM orders o 
+    $whereClause 
+    ORDER BY o.created_at DESC 
+    LIMIT :limit OFFSET :offset
+";
+
+$ordersStmt = $pdo->prepare($ordersQuery);
+foreach ($params as $key => $value) {
+    $ordersStmt->bindValue($key, $value);
+}
+$ordersStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$ordersStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$ordersStmt->execute();
+$orders = $ordersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get order statistics
+$statsQuery = "
+    SELECT 
+        COUNT(*) as total_orders,
+        SUM(CASE WHEN order_status = 'pending' THEN 1 ELSE 0 END) as pending_orders,
+        SUM(CASE WHEN order_status = 'confirmed' THEN 1 ELSE 0 END) as confirmed_orders,
+        SUM(CASE WHEN order_status = 'shipped' THEN 1 ELSE 0 END) as shipped_orders,
+        SUM(CASE WHEN order_status = 'completed' THEN 1 ELSE 0 END) as completed_orders,
+        SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_orders,
+        SUM(CASE WHEN payment_status = 'paid' THEN total_amount ELSE 0 END) as total_revenue
+    FROM orders
+";
+$stats = $pdo->query($statsQuery)->fetch(PDO::FETCH_ASSOC) ?: [];
+// Normalize nulls to 0 to avoid deprecated warnings in number_format
+$stats = array_merge([
+    'total_orders' => 0,
+    'pending_orders' => 0,
+    'confirmed_orders' => 0,
+    'shipped_orders' => 0,
+    'completed_orders' => 0,
+    'cancelled_orders' => 0,
+    'total_revenue' => 0,
+], array_map(function($v){ return $v === null ? 0 : $v; }, $stats));
+
 ?>
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orders - Admin Panel</title>
+    <title><?= $pageTitle ?> - Springs Store Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- JQUERY -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+    .hidden {
+        display: none;
+    }
+    </style>
 </head>
 
-<body class="bg-gray-100 min-h-screen flex">
+<body class="bg-gray-100 min-h-screen">
     <!-- Sidebar -->
     <?php include 'sidebar.php'; ?>
+    <!-- Main Content -->
+    <main class="flex-1 p-6 lg:ml-64">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Order Management</h1>
+            <p class="text-gray-600 mt-2">Track and manage customer orders</p>
+        </div>
 
-    <!-- Main -->
-    <main class="flex-1 p-2 sm:p-6 md:ml-64">
-        <h1 class="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Order Management</h1>
-
+        <!-- Messages -->
         <?php if ($error): ?>
-        <div class="bg-red-100 text-red-600 p-3 rounded mb-4 text-sm">
+        <div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center">
+            <i data-feather="alert-circle" class="w-5 h-5 mr-2"></i>
             <?= htmlspecialchars($error) ?>
         </div>
         <?php endif; ?>
 
-        <!-- Active Orders -->
-        <div class="mb-6 sm:mb-10">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-4">
-                <h2 class="text-xl sm:text-2xl font-semibold">Active Orders</h2>
-                <form method="get" class="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
-                    <label class="text-sm font-medium">Filter by Status:</label>
-                    <select name="filter" onchange="this.form.submit()"
-                        class="border rounded p-2 text-sm w-full sm:w-auto">
-                        <?php foreach ($activeStatuses as $status): ?>
-                        <option value="<?= $status ?>" <?= $filter === $status ? 'selected' : '' ?>>
-                            <?= $status ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <input type="hidden" name="page" value="1">
-                </form>
-            </div>
-            <?php if ($totalActive > 0): ?>
-            <div class="bg-white shadow-md rounded-lg">
-                <!-- Mobile Cards -->
-                <div class="overflow-x-auto md:hidden">
-                    <div class="block md:hidden">
-                        <?php foreach ($activeOrders as $order): ?>
-                        <div class="border border-gray-200 rounded-md p-3 mb-3 bg-gray-50">
-                            <div class="block md:table-row-group">
-                                <div class="block md:table-row mb-2 md:mb-0">
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Order
-                                            #</span>
-                                        <span class="text-sm font-semibold"><?= $order['id'] ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Customer</span>
-                                        <span class="text-sm"><?= htmlspecialchars($order['customer_name']) ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Email</span>
-                                        <span class="text-sm"><?= htmlspecialchars($order['customer_email']) ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Shipping
-                                            Address</span>
-                                        <span class="text-sm"><?= htmlspecialchars($order['shipping_address']) ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Total</span>
-                                        <span class="text-sm font-semibold">Ksh
-                                            <?= number_format($order['total_amount'], 2) ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Payment</span>
-                                        <span class="text-sm"><?= htmlspecialchars($order['payment_method']) ?>
-                                            (<?= htmlspecialchars($order['payment_status']) ?>)</span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Status</span>
-                                        <form method="post" class="inline-block md:inline">
-                                            <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
-                                            <select name="status" onchange="this.form.submit()"
-                                                class="border rounded p-1 text-sm md:text-xs">
-                                                <option value="Pending"
-                                                    <?= $order['status'] === 'Pending' ? 'selected' : '' ?>>Pending
-                                                </option>
-                                                <option value="Processing"
-                                                    <?= $order['status'] === 'Processing' ? 'selected' : '' ?>>
-                                                    Processing</option>
-                                                <option value="Shipped"
-                                                    <?= $order['status'] === 'Shipped' ? 'selected' : '' ?>>Shipped
-                                                </option>
-                                                <option value="Completed">Completed</option>
-                                                <option value="Cancelled">Cancelled</option>
-                                            </select>
-                                        </form>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Date</span>
-                                        <span class="text-sm"><?= $order['created_at'] ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Actions</span>
-                                        <button onclick="viewItems(<?= $order['id'] ?>)"
-                                            class="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">View
-                                            Items</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
+        <?php if ($success): ?>
+        <div class="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center">
+            <i data-feather="check-circle" class="w-5 h-5 mr-2"></i>
+            <?= htmlspecialchars($success) ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- Statistics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Orders</p>
+                        <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['total_orders']) ?></p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i data-feather="shopping-cart" class="w-6 h-6 text-blue-600"></i>
                     </div>
                 </div>
-                <!-- Desktop Table -->
-                <table class="hidden md:table w-full text-xs sm:text-sm">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="p-2 md:p-3">#</th>
-                            <th class="p-2 md:p-3">Customer</th>
-                            <th class="p-2 md:p-3">Email</th>
-                            <th class="p-2 md:p-3">Shipping Address</th>
-                            <th class="p-2 md:p-3">Total</th>
-                            <th class="p-2 md:p-3">Payment</th>
-                            <th class="p-2 md:p-3">Status</th>
-                            <th class="p-2 md:p-3">Date</th>
-                            <th class="p-2 md:p-3">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($activeOrders as $order): ?>
-                        <tr class="border-t">
-                            <td class="p-2 md:p-3"><?= $order['id'] ?></td>
-                            <td class="p-2 md:p-3"><?= htmlspecialchars($order['customer_name']) ?></td>
-                            <td class="p-2 md:p-3"><?= htmlspecialchars($order['customer_email']) ?></td>
-                            <td class="p-2 md:p-3"><?= htmlspecialchars($order['shipping_address']) ?></td>
-                            <td class="p-2 md:p-3 font-semibold">Ksh <?= number_format($order['total_amount'], 2) ?>
-                            </td>
-                            <td class="p-2 md:p-3"><?= htmlspecialchars($order['payment_method']) ?>
-                                (<?= htmlspecialchars($order['payment_status']) ?>)</td>
-                            <td class="p-2 md:p-3">
-                                <form method="post" class="inline">
-                                    <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
-                                    <select name="status" onchange="this.form.submit()" class="border rounded p-1">
-                                        <option value="Pending" <?= $order['status'] === 'Pending' ? 'selected' : '' ?>>
-                                            Pending</option>
-                                        <option value="Processing"
-                                            <?= $order['status'] === 'Processing' ? 'selected' : '' ?>>Processing
-                                        </option>
-                                        <option value="Shipped" <?= $order['status'] === 'Shipped' ? 'selected' : '' ?>>
-                                            Shipped</option>
-                                        <option value="Completed">Completed</option>
-                                        <option value="Cancelled">Cancelled</option>
-                                    </select>
-                                </form>
-                            </td>
-                            <td class="p-2 md:p-3"><?= $order['created_at'] ?></td>
-                            <td class="p-2 md:p-3">
-                                <button onclick="viewItems(<?= $order['id'] ?>)"
-                                    class="px-2 py-1 bg-blue-600 text-white rounded">View Items</button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
             </div>
-            <?= renderPagination($totalActive, $currentPage, $perPage, $filter, 'active') ?>
-            <?php else: ?>
-            <p class="text-gray-500 text-sm">No active orders.</p>
-            <?php endif; ?>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Pending Orders</p>
+                        <p class="text-2xl font-bold text-yellow-600"><?= number_format($stats['pending_orders']) ?></p>
+                    </div>
+                    <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                        <i data-feather="clock" class="w-6 h-6 text-yellow-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Completed Orders</p>
+                        <p class="text-2xl font-bold text-green-600"><?= number_format($stats['completed_orders']) ?>
+                        </p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i data-feather="check-circle" class="w-6 h-6 text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Revenue</p>
+                        <p class="text-2xl font-bold text-gray-900">KSh <?= number_format($stats['total_revenue'], 0) ?>
+                        </p>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i data-feather="dollar-sign" class="w-6 h-6 text-green-600"></i>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Order History -->
-        <div>
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-4">
-                <h2 class="text-xl sm:text-2xl font-semibold">Order History</h2>
-                <form method="get" class="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
-                    <label class="text-sm font-medium">Filter by Status:</label>
-                    <select name="filter" onchange="this.form.submit()"
-                        class="border rounded p-2 text-sm w-full sm:w-auto">
-                        <?php foreach ($historyStatuses as $status): ?>
-                        <option value="<?= $status ?>" <?= $filter === $status ? 'selected' : '' ?>>
-                            <?= $status ?>
-                        </option>
-                        <?php endforeach; ?>
+        <!-- Filters -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Status Filter</label>
+                    <select name="filter"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="all" <?= $filter === 'all' ? 'selected' : '' ?>>All Orders</option>
+                        <option value="pending" <?= $filter === 'pending' ? 'selected' : '' ?>>Pending</option>
+                        <option value="confirmed" <?= $filter === 'confirmed' ? 'selected' : '' ?>>Confirmed</option>
+                        <option value="shipped" <?= $filter === 'shipped' ? 'selected' : '' ?>>Shipped</option>
+                        <option value="completed" <?= $filter === 'completed' ? 'selected' : '' ?>>Completed</option>
+                        <option value="cancelled" <?= $filter === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
                     </select>
-                    <input type="hidden" name="page" value="1">
-                </form>
-            </div>
-            <?php if ($totalHistory > 0): ?>
-            <div class="bg-white shadow-md rounded-lg">
-                <!-- Mobile Cards -->
-                <div class="overflow-x-auto md:hidden">
-                    <div class="block md:hidden">
-                        <?php foreach ($historyOrders as $order): ?>
-                        <div class="border border-gray-200 rounded-md p-3 mb-3 bg-gray-50">
-                            <div class="block md:table-row-group">
-                                <div class="block md:table-row mb-2 md:mb-0">
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Order
-                                            #</span>
-                                        <span class="text-sm font-semibold"><?= $order['id'] ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Customer</span>
-                                        <span class="text-sm"><?= htmlspecialchars($order['customer_name']) ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Email</span>
-                                        <span class="text-sm"><?= htmlspecialchars($order['customer_email']) ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Shipping
-                                            Address</span>
-                                        <span class="text-sm"><?= htmlspecialchars($order['shipping_address']) ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Total</span>
-                                        <span class="text-sm font-semibold">Ksh
-                                            <?= number_format($order['total_amount'], 2) ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Payment</span>
-                                        <span class="text-sm"><?= htmlspecialchars($order['payment_method']) ?>
-                                            (<?= htmlspecialchars($order['payment_status']) ?>)</span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Status</span>
-                                        <span class="text-sm"><?= statusBadge($order['status']) ?> <span
-                                                class="text-xs text-gray-400">(Locked)</span></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Date</span>
-                                        <span class="text-sm"><?= $order['created_at'] ?></span>
-                                    </div>
-                                    <div class="block md:table-cell p-2 md:p-3 align-top md:align-middle">
-                                        <span
-                                            class="block md:hidden font-semibold text-xs text-gray-500 mb-1">Actions</span>
-                                        <button onclick="viewItems(<?= $order['id'] ?>)"
-                                            class="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">View
-                                            Items</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
                 </div>
-                <!-- Desktop Table -->
-                <table class="hidden md:table w-full text-xs sm:text-sm">
-                    <thead class="bg-gray-200">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                    <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
+                        placeholder="Order ID, customer name, email..."
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+                    <input type="date" name="date_from" value="<?= htmlspecialchars($dateFrom) ?>"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+                    <input type="date" name="date_to" value="<?= htmlspecialchars($dateTo) ?>"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+
+                <div class="flex items-end">
+                    <button type="submit"
+                        class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+                        <i data-feather="search" class="w-4 h-4 mr-2 inline"></i>
+                        Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Orders Table -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
                         <tr>
-                            <th class="p-2 md:p-3">#</th>
-                            <th class="p-2 md:p-3">Customer</th>
-                            <th class="p-2 md:p-3">Email</th>
-                            <th class="p-2 md:p-3">Shipping Address</th>
-                            <th class="p-2 md:p-3">Total</th>
-                            <th class="p-2 md:p-3">Payment</th>
-                            <th class="p-2 md:p-3">Status</th>
-                            <th class="p-2 md:p-3">Date</th>
-                            <th class="p-2 md:p-3">Actions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Order</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Customer</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Amount</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Payment</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <?php foreach ($historyOrders as $order): ?>
-                        <tr class="border-t">
-                            <td class="p-2 md:p-3"><?= $order['id'] ?></td>
-                            <td class="p-2 md:p-3"><?= htmlspecialchars($order['customer_name']) ?></td>
-                            <td class="p-2 md:p-3"><?= htmlspecialchars($order['customer_email']) ?></td>
-                            <td class="p-2 md:p-3"><?= htmlspecialchars($order['shipping_address']) ?></td>
-                            <td class="p-2 md:p-3 font-semibold">Ksh <?= number_format($order['total_amount'], 2) ?>
+                    <tbody class="divide-y divide-gray-200">
+                        <?php foreach ($orders as $order): ?>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">#<?= $order['id'] ?></div>
+                                    <div class="text-sm text-gray-500"><?= $order['item_count'] ?> item(s)</div>
+                                </div>
                             </td>
-                            <td class="p-2 md:p-3"><?= htmlspecialchars($order['payment_method']) ?>
-                                (<?= htmlspecialchars($order['payment_status']) ?>)</td>
-                            <td class="p-2 md:p-3"><?= statusBadge($order['status']) ?> <span
-                                    class="text-xs text-gray-400">(Locked)</span></td>
-                            <td class="p-2 md:p-3"><?= $order['created_at'] ?></td>
-                            <td class="p-2 md:p-3">
-                                <button onclick="viewItems(<?= $order['id'] ?>)"
-                                    class="px-2 py-1 bg-blue-600 text-white rounded">View Items</button>
+                            <td class="px-6 py-4">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">
+                                        <?= htmlspecialchars($order['customer_name']) ?></div>
+                                    <div class="text-sm text-gray-500"><?= htmlspecialchars($order['customer_email']) ?>
+                                    </div>
+                                    <div class="text-sm text-gray-500"><?= htmlspecialchars($order['customer_phone']) ?>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">KSh
+                                <?= number_format((float)($order['total_amount'] ?? 0), 2) ?></td>
+                            <td class="px-6 py-4">
+                                <span
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    <?= $order['order_status'] === 'completed' ? 'bg-green-100 text-green-800' : 
+                                       ($order['order_status'] === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                                       ($order['order_status'] === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800')) ?>">
+                                    <?= ucfirst($order['order_status']) ?>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    <?= $order['payment_status'] === 'paid' ? 'bg-green-100 text-green-800' : 
+                                       ($order['payment_status'] === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') ?>">
+                                    <?= ucfirst($order['payment_status']) ?>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">
+                                <?= date('M j, Y', strtotime($order['created_at'])) ?></td>
+                            <td class="px-6 py-4 text-sm font-medium">
+                                <div class="flex space-x-2">
+                                    <button onclick="viewOrder(<?= $order['id'] ?>)"
+                                        class="text-blue-600 hover:text-blue-900">
+                                        <i data-feather="eye" class="w-4 h-4"></i>
+                                    </button>
+                                    <button
+                                        onclick="updateOrderStatus(<?= $order['id'] ?>, '<?= $order['order_status'] ?>')"
+                                        class="text-blue-600 hover:text-blue-900">
+                                        <i data-feather="edit" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
-            <?= renderPagination($totalHistory, $currentPage, $perPage, $filter, 'history') ?>
-            <?php else: ?>
-            <p class="text-gray-500 text-sm">No completed or cancelled orders yet.</p>
-            <?php endif; ?>
+        </div>
+
+        <!-- Pagination -->
+        <?php if ($totalPages > 1): ?>
+        <div class="mt-6 flex justify-center">
+            <nav class="flex items-center space-x-2">
+                <?php if ($page > 1): ?>
+                <a href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>"
+                    class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <i data-feather="chevron-left" class="w-4 h-4"></i>
+                </a>
+                <?php endif; ?>
+
+                <?php
+                $startPage = max(1, $page - 2);
+                $endPage = min($totalPages, $page + 2);
+                
+                for ($i = $startPage; $i <= $endPage; $i++):
+                ?>
+                <a href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>"
+                    class="px-3 py-2 text-sm font-medium rounded-lg <?= $i === $page ? 'bg-blue-500 text-white' : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50' ?>">
+                    <?= $i ?>
+                </a>
+                <?php endfor; ?>
+
+                <?php if ($page < $totalPages): ?>
+                <a href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>"
+                    class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    <i data-feather="chevron-right" class="w-4 h-4"></i>
+                </a>
+                <?php endif; ?>
+            </nav>
+        </div>
+        <?php endif; ?>
+
+        <!-- Summary -->
+        <div class="mt-6 text-center text-sm text-gray-500">
+            Showing <?= $offset + 1 ?>-<?= min($offset + $perPage, $totalOrders) ?> of <?= $totalOrders ?> orders
         </div>
     </main>
 
-    <!-- Modal -->
-    <div id="itemsModal" class="fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-[9999] p-4"
-        style="display: none;">
-        <div class="bg-white rounded-lg p-4 sm:p-6 max-w-sm sm:max-w-lg w-full shadow-lg">
-            <h3 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Order Items</h3>
-            <div id="itemsContent" class="space-y-2 text-xs sm:text-sm"></div>
-            <div class="mt-3 sm:mt-4 flex justify-end">
-                <button onclick="closeModal()" class="px-3 sm:px-4 py-2 bg-gray-600 text-white rounded">Close</button>
+    <!-- Order Details Modal -->
+    <div id="orderModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900">Order Details</h3>
+                    <button onclick="closeOrderModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-feather="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="orderDetails" class="p-6">
+                <!-- Order details will be loaded here -->
             </div>
         </div>
     </div>
 
+    <!-- Status Update Modal -->
+    <div id="statusModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full">
+            <div class="p-6 border-b">
+                <h3 class="text-lg font-semibold text-gray-900">Update Order Status</h3>
+            </div>
+            <form method="POST" id="statusForm">
+                <div class="p-6 space-y-4">
+                    <input type="hidden" name="order_id" id="statusOrderId">
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">New Status</label>
+                        <select name="status" id="statusSelect"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="pending">Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="shipped">Shipped</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+                        <textarea name="notes" rows="3" placeholder="Add a note about this status change..."
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+                    <button type="button" onclick="closeStatusModal()"
+                        class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        Update Status
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
     <script>
-    function viewItems(orderId) {
-        fetch(`orders.php?fetch_items=1&order_id=${orderId}`)
-            .then(res => res.json())
-            .then(items => {
-                let html = "";
-                if (items.length > 0) {
-                    html += `<div class="overflow-x-auto"><table class="w-full text-xs sm:text-sm border">
-                    <thead class="bg-gray-200">
-                        <tr>
-                            <th class="p-1 sm:p-2">Product</th>
-                            <th class="p-1 sm:p-2">Variant</th>
-                            <th class="p-1 sm:p-2">Qty</th>
-                            <th class="p-1 sm:p-2">Price</th>
-                            <th class="p-1 sm:p-2">Subtotal</th>
-                        </tr>
-                    </thead><tbody>`;
-                    items.forEach(it => {
-                        html += `<tr class="border-t">
-                        <td class="p-1 sm:p-2">${it.product_name ?? 'N/A'}</td>
-                        <td class="p-1 sm:p-2">${it.variant_name ?? '-'}</td>
-                        <td class="p-1 sm:p-2">${it.quantity}</td>
-                        <td class="p-1 sm:p-2">Ksh ${parseFloat(it.price).toFixed(2)}</td>
-                        <td class="p-1 sm:p-2">Ksh ${parseFloat(it.subtotal).toFixed(2)}</td>
-                    </tr>`;
-                    });
-                    html += "</tbody></table></div>";
-                } else {
-                    html = "<p class='text-gray-500'>No items found for this order.</p>";
-                }
-                document.getElementById("itemsContent").innerHTML = html;
-                document.getElementById("itemsModal").classList.remove("hidden");
-                document.getElementById("itemsModal").classList.add("flex");
-            });
+    function viewOrder(orderId) {
+        // Simple implementation - in a real app, you'd fetch order details from the server
+        const orderDetails = document.getElementById('orderDetails');
+        orderDetails.innerHTML = `
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-500">Order Information</h4>
+                        <p class="mt-1 text-sm text-gray-900">Order #${orderId}</p>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-500">Customer Information</h4>
+                        <p class="mt-1 text-sm text-gray-900">Loading...</p>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-medium text-gray-500">Order Items</h4>
+                    <p class="mt-1 text-sm text-gray-900">Loading items...</p>
+                </div>
+            </div>
+        `;
+        document.getElementById('orderModal').classList.remove('hidden');
+        feather.replace();
     }
 
-    function closeModal() {
-        document.getElementById("itemsModal").classList.add("hidden");
-        document.getElementById("itemsModal").classList.remove("flex");
+    function closeOrderModal() {
+        document.getElementById('orderModal').classList.add('hidden');
     }
+
+    function updateOrderStatus(orderId, currentStatus) {
+        document.getElementById('statusOrderId').value = orderId;
+        document.getElementById('statusSelect').value = currentStatus;
+        document.getElementById('statusModal').classList.remove('hidden');
+    }
+
+    function closeStatusModal() {
+        document.getElementById('statusModal').classList.add('hidden');
+    }
+
+    // Close modals on background click
+    document.getElementById('orderModal').addEventListener('click', function(e) {
+        if (e.target === this) closeOrderModal();
+    });
+
+    document.getElementById('statusModal').addEventListener('click', function(e) {
+        if (e.target === this) closeStatusModal();
+    });
+
+    // Initialize Feather icons
+    feather.replace();
     </script>
 </body>
 
