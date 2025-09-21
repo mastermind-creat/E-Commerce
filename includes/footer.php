@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/settings.php'; ?>
 <!-- Footer -->
 <footer class="bg-gray-900 text-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -5,32 +6,45 @@
             <!-- Company Info -->
             <div class="space-y-4">
                 <div class="flex items-center space-x-2">
-                    <div
-                        class="w-10 h-10 bg-gradient-to-br from-primary-500 to-pink-600 rounded-lg flex items-center justify-center">
+                    <!-- System uses icon for logo -->
+                    <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-pink-600 rounded-lg flex items-center justify-center">
                         <i data-feather="shopping-bag" class="w-6 h-6 text-white"></i>
                     </div>
                     <div>
-                        <h3 class="text-xl font-bold">Springs Store</h3>
-                        <p class="text-sm text-gray-400">Ministries</p>
+                        <h3 class="text-xl font-bold">
+                            <?= htmlspecialchars(get_setting('company_name', 'Springs Store')) ?></h3>
+                        <p class="text-sm text-gray-400">
+                            <?= htmlspecialchars(get_setting('site_title', 'Ministries')) ?></p>
                     </div>
                 </div>
                 <p class="text-gray-300 text-sm leading-relaxed">
-                    Your trusted destination for quality clothes, bags, and jewelry.
-                    We bring you the latest trends at affordable prices with fast, reliable delivery.
+                    <?= nl2br(htmlspecialchars(get_setting('footer_about', 'Your trusted destination for quality products. We bring you the latest trends at affordable prices with fast, reliable delivery.'))) ?>
                 </p>
                 <div class="flex space-x-4">
-                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                    <?php if ($fbUrl = get_setting('facebook_url')): ?>
+                    <a href="<?= htmlspecialchars($fbUrl) ?>" target="_blank" rel="noopener"
+                        class="text-gray-400 hover:text-white transition-colors">
                         <i data-feather="facebook" class="w-5 h-5"></i>
                     </a>
-                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                    <?php endif; ?>
+                    <?php if ($igUrl = get_setting('instagram_url')): ?>
+                    <a href="<?= htmlspecialchars($igUrl) ?>" target="_blank" rel="noopener"
+                        class="text-gray-400 hover:text-white transition-colors">
                         <i data-feather="instagram" class="w-5 h-5"></i>
                     </a>
-                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                    <?php endif; ?>
+                    <?php if ($twUrl = get_setting('twitter_url')): ?>
+                    <a href="<?= htmlspecialchars($twUrl) ?>" target="_blank" rel="noopener"
+                        class="text-gray-400 hover:text-white transition-colors">
                         <i data-feather="twitter" class="w-5 h-5"></i>
                     </a>
-                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
-                        <i data-feather="youtube" class="w-5 h-5"></i>
+                    <?php endif; ?>
+                    <?php if ($liUrl = get_setting('linkedin_url')): ?>
+                    <a href="<?= htmlspecialchars($liUrl) ?>" target="_blank" rel="noopener"
+                        class="text-gray-400 hover:text-white transition-colors">
+                        <i data-feather="linkedin" class="w-5 h-5"></i>
                     </a>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -133,7 +147,10 @@
                 </div>
                 <div class="flex items-center space-x-2 text-sm text-gray-400">
                     <span>Powered by</span>
-                    <span class="text-primary-400 font-semibold">Springs Tech</span>
+                    <a href="https://lates-portfolio-v1.vercel.app/" target="_blank" rel="noopener"
+                        class="text-primary-400 font-semibold hover:text-pink-500 hover:underline">
+                        MastermindCreat
+                    </a>
                 </div>
             </div>
         </div>

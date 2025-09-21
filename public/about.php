@@ -45,14 +45,13 @@ include __DIR__ . '/../includes/header.php';
                 </ul>
             </div>
 
-            <!-- Image Section (Optional: add a compelling image here) -->
+            <!-- Image Section (Transparent Card for No-Background Images) -->
             <div class="relative rounded-2xl overflow-hidden shadow-xl lg:h-96">
-                <img src="assets/images/placeholder.png" alt="Our Team" class="w-full h-full object-cover"
-                    loading="lazy">
+                <img src="assets/images/maggy.jpg" alt="Our Team" class="w-full h-full object-cover" loading="lazy">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                <div class="absolute bottom-6 left-6 text-white">
-                    <h3 class="text-2xl font-bold">Our Story</h3>
-                    <p class="text-sm">Crafting elegance, one piece at a time.</p>
+                <div class="absolute bottom-6 left-6 bg-transparent text-white">
+                    <h3 class="text-2xl font-bold drop-shadow">Our Story</h3>
+                    <p class="text-sm drop-shadow">Crafting elegance, one piece at a time.</p>
                 </div>
             </div>
         </div>

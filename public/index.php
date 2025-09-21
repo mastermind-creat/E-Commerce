@@ -370,27 +370,6 @@ include __DIR__ . '/../includes/header.php';
         </div>
     </section>
     <?php endif; ?>
-
-    <!-- Newsletter Section -->
-    <section class="py-16 bg-gradient-to-r from-primary-500 to-pink-600">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Stay in the Loop</h2>
-            <p class="text-xl text-primary-100 mb-8">Get the latest updates on new arrivals, exclusive offers, and style
-                tips delivered to your inbox.</p>
-
-            <form action="newsletter.php" method="POST" class="max-w-md mx-auto">
-                <div class="flex">
-                    <input type="email" name="email" placeholder="Enter your email address" required
-                        class="flex-1 px-6 py-4 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-gray-900 placeholder-gray-500">
-                    <button type="submit"
-                        class="px-8 py-4 bg-white text-primary-600 font-semibold rounded-r-lg hover:bg-gray-50 transition-colors">
-                        Subscribe
-                    </button>
-                </div>
-                <p class="text-primary-100 text-sm mt-4">We respect your privacy. Unsubscribe at any time.</p>
-            </form>
-        </div>
-    </section>
 </main>
 
 <!-- JavaScript -->

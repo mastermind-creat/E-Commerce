@@ -70,6 +70,12 @@ $pendingCount = $pendingStmt->fetch(PDO::FETCH_ASSOC)['pending_count'] ?? 0;
             <i data-feather="image" class="w-5 h-5 text-gray-600"></i>
             <span class="ml-2">Hero Manager</span>
         </a>
+        <a href="settings.php" aria-label="System Settings"
+            class="group flex items-center px-4 py-2 rounded-lg transition-all duration-200 transform hover:translate-x-1 hover:shadow-sm
+            <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 font-medium border-l-4 border-blue-500' : 'hover:bg-gray-100 text-gray-700'; ?>">
+            <i data-feather="settings" class="w-5 h-5 text-gray-600"></i>
+            <span class="ml-2">Settings</span>
+        </a>
     </nav>
 
     <!-- Footer -->

@@ -2,6 +2,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+require_once __DIR__ . '/settings.php';
 
 // Initialize cart if not set
 if (!isset($_SESSION['cart'])) {
@@ -25,9 +26,26 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= isset($pageTitle) ? $pageTitle . ' - ' : '' ?>Springs Ministries Store</title>
-    <meta name="description"
-        content="Quality clothes, bags, jewelry and more at Springs Ministries Store. Fast delivery, great prices.">
+    <title><?= isset($pageTitle) ? $pageTitle . ' - ' : '' ?><?= get_setting('site_title', 'Springs Ministries Store') ?></title>
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="<?= get_setting('site_description', 'Quality clothes, bags, jewelry and more. Fast delivery, great prices.') ?>">
+    <meta name="keywords" content="<?= get_setting('site_keywords', 'ecommerce, online shopping, products') ?>">
+    <meta name="robots" content="<?= get_setting('meta_robots', 'index, follow') ?>">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/<?= get_setting('site_favicon', 'assets/images/favicon.ico') ?>">
+    
+    <!-- Google Analytics -->
+    <?php if ($gaId = get_setting('google_analytics_id')): ?>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=<?= htmlspecialchars($gaId) ?>"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '<?= htmlspecialchars($gaId) ?>');
+    </script>
+    <?php endif; ?>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
