@@ -5,6 +5,7 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 $productId = intval($_GET['id'] ?? 0);
 
@@ -141,14 +142,9 @@ include __DIR__ . '/../includes/header.php';
 
                     <!-- Rating -->
                     <div class="flex items-center space-x-2 mb-4">
-                        <div class="flex items-center">
-                            <?php for ($i = 1; $i <= 5; $i++): ?>
-                            <i data-feather="star"
-                                class="w-5 h-5 <?= $i <= $avgRating ? 'text-yellow-400 fill-current' : 'text-gray-300' ?>"></i>
-                            <?php endfor; ?>
-                        </div>
-                        <span class="text-gray-600"><?= $avgRating ?> (<?= $totalReviews ?>
-                            review<?= $totalReviews !== 1 ? 's' : '' ?>)</span>
+                        <?= render_stars($avgRating, 18) ?>
+                        <span
+                            class="text-gray-600"><?= htmlspecialchars(format_rating_text($avgRating, $totalReviews)) ?></span>
                     </div>
 
                     <!-- Price -->
@@ -330,8 +326,19 @@ include __DIR__ . '/../includes/header.php';
                                 <span class="text-lg font-bold text-gray-900">KSh
                                     <?= number_format($related['price'], 2) ?></span>
                                 <div class="flex items-center text-yellow-400">
-                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                    <span class="text-gray-500 text-sm ml-1">(4.8)</span>
+                                    <?php
+                                        // attempt to show rating for related product
+                                        $rAvg = null; $rCount = 0;
+                                        try {
+                                            $rs = $pdo->prepare('SELECT AVG(rating) as avg_rating, COUNT(*) as total_reviews FROM reviews WHERE product_id = ?');
+                                            $rs->execute([$related['id']]);
+                                            $rd = $rs->fetch(PDO::FETCH_ASSOC);
+                                            if ($rd) { $rAvg = round((float)($rd['avg_rating'] ?? 0), 1); $rCount = (int)($rd['total_reviews'] ?? 0); }
+                                        } catch (Exception $e) {}
+                                    ?>
+                                    <?= render_stars($rAvg, 14) ?>
+                                    <span
+                                        class="text-gray-500 text-sm ml-2"><?= htmlspecialchars(format_rating_text($rAvg, $rCount)) ?></span>
                                 </div>
                             </div>
                         </div>

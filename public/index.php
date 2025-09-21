@@ -46,6 +46,20 @@ try {
     $featuredProducts = [];
 }
 
+// Load ratings (average and count) for featured products to display on cards
+if (!empty($featuredProducts)) {
+    $ids = array_column($featuredProducts, 'id');
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("SELECT product_id, COUNT(*) as review_count, AVG(rating) as avg_rating FROM reviews WHERE product_id IN ($placeholders) GROUP BY product_id");
+    $stmt->execute($ids);
+    $ratings = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $ratings[$r['product_id']] = $r;
+    }
+} else {
+    $ratings = [];
+}
+
 // Get recent reviews
 try {
     $reviews = $pdo->query("
@@ -237,12 +251,13 @@ include __DIR__ . '/../includes/header.php';
                                 <span class="text-2xl font-bold text-gray-900">KSh
                                     <?= number_format($product['price'], 2) ?></span>
                                 <div class="flex items-center text-yellow-400">
-                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                    <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                    <span class="text-gray-500 text-sm ml-1">(4.8)</span>
+                                    <?php
+                                        $pid = $product['id'];
+                                        $avg = isset($ratings[$pid]) && $ratings[$pid]['avg_rating'] !== null ? round($ratings[$pid]['avg_rating'], 1) : null;
+                                        $count = isset($ratings[$pid]) ? (int)$ratings[$pid]['review_count'] : 0;
+                                    ?>
+                                    <?= render_stars($avg, 14) ?>
+                                    <span class="text-gray-500 text-sm ml-2">(<?= htmlspecialchars(format_rating_text($avg, $count)) ?>)</span>
                                 </div>
                             </div>
                         </div>

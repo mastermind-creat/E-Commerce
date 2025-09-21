@@ -163,9 +163,9 @@ $categories = $pdo->query("SELECT id, name FROM categories ORDER BY name ASC")->
             </div>
             <div class="mt-4 sm:mt-0 flex space-x-3">
                 <a href="add_product.php"
-                    class="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors flex items-center">
-                    <i data-feather="plus" class="w-4 h-4 mr-2"></i>
-                    Add Product
+                    class="flex items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i data-feather="plus" class="w-5 h-5 mr-2 text-primary-600"></i>
+                    <span class="text-sm font-medium text-gray-700">Add Product</span>
                 </a>
                 <button id="bulkActionsBtn"
                     class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors flex items-center"

@@ -58,6 +58,33 @@ function product_image_url(?string $filename): string {
     return 'assets/products/' . $clean;
 }
 
+// ==================== RATING HELPERS ==================== //
+/**
+ * Render star rating HTML where `avg` is a float 0-5. Uses CSS-based partial fill.
+ */
+function render_stars(?float $avg, int $size = 16): string {
+    $avg = $avg === null ? 0.0 : (float)$avg;
+    $percentage = max(0, min(100, ($avg / 5.0) * 100));
+    $safeSize = intval($size);
+    $starChar = '★';
+
+    $emptyStars = '<span style="color:#E5E7EB;font-size:' . $safeSize . 'px;line-height:1;letter-spacing:1px;">' . str_repeat($starChar, 5) . '</span>';
+    $filledStars = '<span style="color:#F59E0B;font-size:' . $safeSize . 'px;line-height:1;letter-spacing:1px;white-space:nowrap;">' . str_repeat($starChar, 5) . '</span>';
+
+    // Layer filled stars on top of empty stars and clip by percentage for partial fills
+    $html = '<span class="rating-wrap" style="display:inline-block;position:relative;line-height:1;vertical-align:middle;">';
+    $html .= $emptyStars;
+    $html .= '<span class="rating-fill" style="position:absolute;left:0;top:0;overflow:hidden;width:' . $percentage . '%;pointer-events:none;">' . $filledStars . '</span>';
+    $html .= '</span>';
+    return $html;
+}
+
+function format_rating_text(?float $avg, int $count): string {
+    $avgText = $avg !== null ? number_format($avg, 1) : '0.0';
+    if ($count > 0) return $avgText . ' — ' . $count . ' review' . ($count > 1 ? 's' : '');
+    return $avgText;
+}
+
 // ==================== PRICE FORMATTER ==================== //
 function format_price(?string $price): string {
     return $price ? 'From ' . htmlspecialchars($price) : '';

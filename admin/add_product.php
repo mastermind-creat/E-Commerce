@@ -25,6 +25,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$category_id, $name, $sku, $description, $price, $stock, $status]);
         $product_id = $pdo->lastInsertId();
 
+        // If SKU not provided, auto-generate one based on product ID to ensure uniqueness
+        if (empty(trim($sku))) {
+            // Format: PROD-000001 (zero-padded to 6 digits)
+            $generatedSku = sprintf('PROD-%06d', $product_id);
+            $pdo->prepare("UPDATE products SET sku = ? WHERE id = ?")->execute([$generatedSku, $product_id]);
+            $sku = $generatedSku; // keep $sku variable in sync for any further use
+        }
+
         // Insert variants (optional) and sync total stock on product
         $totalVariantStock = 0;
         if (!empty($variants)) {

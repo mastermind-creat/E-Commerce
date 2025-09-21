@@ -102,6 +102,20 @@ $productsStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $productsStmt->execute();
 $products = $productsStmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Preload ratings (average and count) for displayed products to avoid N+1 queries
+if (!empty($products)) {
+    $prodIds = array_column($products, 'id');
+    $placeholders = implode(',', array_fill(0, count($prodIds), '?'));
+    $rStmt = $pdo->prepare("SELECT product_id, COUNT(*) as review_count, AVG(rating) as avg_rating FROM reviews WHERE product_id IN ($placeholders) GROUP BY product_id");
+    $rStmt->execute($prodIds);
+    $productRatings = [];
+    foreach ($rStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $productRatings[$r['product_id']] = $r;
+    }
+} else {
+    $productRatings = [];
+}
+
 // Get categories for filter
 try {
     $categories = $pdo->query("SELECT id, name, slug FROM categories ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -152,7 +166,6 @@ include __DIR__ . '/../includes/header.php';
 
                 <!-- View Toggle -->
                 <div class="mt-4 sm:mt-0 flex items-center space-x-2">
-                    <span class="text-sm text-gray-500">View:</span>
                     <button id="gridView" class="p-2 rounded-md bg-primary-100 text-primary-600">
                         <i data-feather="grid" class="w-4 h-4"></i>
                     </button>
@@ -318,12 +331,14 @@ include __DIR__ . '/../includes/header.php';
                                     <span class="text-2xl font-bold text-gray-900">KSh
                                         <?= number_format($product['price'], 2) ?></span>
                                     <div class="flex items-center text-yellow-400">
-                                        <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                        <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                        <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                        <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                        <i data-feather="star" class="w-4 h-4 fill-current"></i>
-                                        <span class="text-gray-500 text-sm ml-1">(4.8)</span>
+                                        <?php
+                                            $pid = $product['id'];
+                                            $avg = isset($productRatings[$pid]) && $productRatings[$pid]['avg_rating'] !== null ? round($productRatings[$pid]['avg_rating'], 1) : null;
+                                            $count = isset($productRatings[$pid]) ? (int)$productRatings[$pid]['review_count'] : 0;
+                                        ?>
+                                        <?= render_stars($avg, 14) ?>
+                                        <span
+                                            class="text-gray-500 text-sm ml-2">(<?= htmlspecialchars(format_rating_text($avg, $count)) ?>)</span>
                                     </div>
                                 </div>
                             </div>
