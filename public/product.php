@@ -39,9 +39,10 @@ $variantsStmt = $pdo->prepare('SELECT * FROM product_variants WHERE product_id =
 $variantsStmt->execute([$productId]);
 $variants = $variantsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get related products
+// Get related products with their primary images
 $relatedStmt = $pdo->prepare('
-    SELECT p.*, pi.image_url 
+    SELECT p.*, 
+           COALESCE(pi.image_url, (SELECT image_url FROM product_images WHERE product_id = p.id LIMIT 1)) as image_url
     FROM products p 
     LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = 1
     WHERE p.category_id = ? AND p.id != ? AND p.status = "active" 
@@ -314,10 +315,24 @@ include __DIR__ . '/../includes/header.php';
                     class="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden">
                     <a href="product.php?id=<?= $related['id'] ?>" class="block">
                         <div class="relative overflow-hidden">
-                            <img src="<?= $related['image_url'] ? 'assets/products/' . htmlspecialchars($related['image_url']) : 'assets/images/placeholder.png' ?>"
-                                alt="<?= htmlspecialchars($related['name']) ?>"
+                            <?php
+                                $imgUrl = product_image_url($related['image_url'] ?? null);
+                                // Server-side path to check file existence (public folder)
+                                $imgFile = __DIR__ . '/' . ($related['image_url'] ?? '');
+                                if ($related['image_url']) {
+                                    // normalize if stored with assets/products/ prefix
+                                    $maybe = preg_replace('#^assets/products/#', '', $related['image_url']);
+                                    $imgFile = __DIR__ . '/assets/products/' . $maybe;
+                                }
+                                $imgExists = is_file($imgFile);
+                            ?>
+                            <!-- IMG-DEBUG: resolved="<?= htmlspecialchars($imgUrl) ?>" file="<?= htmlspecialchars($imgFile) ?>" exists="<?= $imgExists ? '1' : '0' ?>" -->
+                            <img src="<?= htmlspecialchars($imgUrl) ?>" alt="<?= htmlspecialchars($related['name']) ?>"
+                                data-img-resolved="<?= htmlspecialchars($imgUrl) ?>"
+                                data-img-file="<?= htmlspecialchars($imgFile) ?>"
+                                data-img-exists="<?= $imgExists ? '1' : '0' ?>"
                                 class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                                onerror="this.src='assets/images/placeholder.png'">
+                                onerror="this.src='<?= htmlspecialchars(product_image_url(null)) ?>'">
                         </div>
                         <div class="p-4">
                             <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">

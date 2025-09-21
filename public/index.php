@@ -129,15 +129,50 @@ include __DIR__ . '/../includes/header.php';
                 <!-- Hero Image Carousel -->
                 <div class="relative">
                     <div class="relative h-96 lg:h-[500px] rounded-2xl overflow-hidden shadow-2xl">
-                        <?php if (!empty($productImages)): ?>
+                        <?php if (!empty($featuredProducts)): ?>
                         <div id="heroCarousel" class="relative h-full">
-                            <?php foreach (array_slice($productImages, 0, 5) as $i => $img): ?>
+                            <?php foreach (array_slice($featuredProducts, 0, 5) as $i => $product): ?>
                             <div
                                 class="hero-slide absolute inset-0 transition-opacity duration-1000 <?= $i === 0 ? 'opacity-100' : 'opacity-0' ?>">
-                                <img src="assets/products/<?= htmlspecialchars($img) ?>" alt="Featured Product"
-                                    class="w-full h-full object-cover"
+                                <img src="<?= $product['image_url'] ? 'assets/products/' . htmlspecialchars($product['image_url']) : 'assets/images/placeholder.png' ?>"
+                                    alt="<?= htmlspecialchars($product['name']) ?>" class="w-full h-full object-cover"
                                     onerror="this.src='assets/images/placeholder.png'">
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+
+                                <div
+                                    class="absolute bottom-8 left-8 text-white max-w-xl p-4 bg-gradient-to-r from-black/40 via-black/20 to-transparent rounded-lg overlay-card">
+                                    <?php if (!empty($product['category_name'])): ?>
+                                    <span
+                                        class="inline-block text-xs bg-primary-600/90 text-white px-3 py-1 rounded-full mb-2"><?= htmlspecialchars($product['category_name']) ?></span>
+                                    <?php endif; ?>
+                                    <h2 class="text-2xl sm:text-3xl font-extrabold leading-tight drop-shadow-sm mb-2">
+                                        <?= htmlspecialchars($product['name']) ?></h2>
+                                    <p class="text-sm sm:text-base text-white/90 mb-3 line-clamp-3">
+                                        <?= htmlspecialchars(substr($product['description'] ?? '', 0, 180)) ?><?= strlen($product['description'] ?? '') > 180 ? '...' : '' ?>
+                                    </p>
+                                    <div class="flex items-center gap-4 mb-2">
+                                        <div class="text-2xl font-bold">KSh
+                                            <?= number_format((float)($product['price'] ?? 0), 2) ?></div>
+                                        <?php
+                                            $pid = $product['id'];
+                                            $avg = isset($ratings[$pid]) && $ratings[$pid]['avg_rating'] !== null ? round($ratings[$pid]['avg_rating'], 1) : null;
+                                            $count = isset($ratings[$pid]) ? (int)$ratings[$pid]['review_count'] : 0;
+                                        ?>
+                                        <div class="flex items-center text-yellow-400">
+                                            <?= render_stars($avg, 14) ?>
+                                            <span
+                                                class="text-white/90 text-sm ml-2"><?= htmlspecialchars(format_rating_text($avg, $count)) ?></span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <a href="product.php?id=<?= $product['id'] ?>"
+                                            class="inline-flex items-center px-4 py-2 bg-white text-primary-600 rounded-lg font-semibold hover:opacity-95 transition">View
+                                            Product</a>
+                                        <a href="shop.php?category=<?= urlencode($product['category_name'] ?? '') ?>"
+                                            class="inline-flex items-center px-3 py-2 bg-white/10 text-white rounded-lg border border-white/20 hover:bg-white/5 transition">Shop
+                                            Category</a>
+                                    </div>
+                                </div>
                             </div>
                             <?php endforeach; ?>
                         </div>
@@ -154,13 +189,13 @@ include __DIR__ . '/../includes/header.php';
 
                         <!-- Indicators -->
                         <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-                            <?php foreach (array_slice($productImages, 0, 5) as $i => $img): ?>
+                            <?php foreach (array_slice($featuredProducts, 0, 5) as $i => $p): ?>
                             <button
                                 class="hero-indicator w-3 h-3 rounded-full bg-white/60 hover:bg-white transition-all <?= $i === 0 ? 'bg-white' : '' ?>"
                                 data-slide="<?= $i ?>"></button>
                             <?php endforeach; ?>
                         </div>
-                        <?php else: ?>
+                        <?php elseif (!empty($productImages)): ?>
                         <div class="w-full h-full bg-gray-200 flex items-center justify-center">
                             <div class="text-center text-gray-500">
                                 <i data-feather="image" class="w-16 h-16 mx-auto mb-4"></i>
@@ -257,7 +292,8 @@ include __DIR__ . '/../includes/header.php';
                                         $count = isset($ratings[$pid]) ? (int)$ratings[$pid]['review_count'] : 0;
                                     ?>
                                     <?= render_stars($avg, 14) ?>
-                                    <span class="text-gray-500 text-sm ml-2">(<?= htmlspecialchars(format_rating_text($avg, $count)) ?>)</span>
+                                    <span
+                                        class="text-gray-500 text-sm ml-2">(<?= htmlspecialchars(format_rating_text($avg, $count)) ?>)</span>
                                 </div>
                             </div>
                         </div>
@@ -361,18 +397,26 @@ include __DIR__ . '/../includes/header.php';
 <script>
 // Hero Carousel
 let currentSlide = 0;
-const slides = document.querySelectorAll('.hero-slide');
-const indicators = document.querySelectorAll('.hero-indicator');
+const slides = Array.from(document.querySelectorAll('.hero-slide'));
+const indicators = Array.from(document.querySelectorAll('.hero-indicator'));
 const totalSlides = slides.length;
+
+// Initialize first slide as active for Ken Burns effect
+if (slides.length > 0) {
+    slides[0].classList.add('active');
+}
 
 function showSlide(index) {
     slides.forEach((slide, i) => {
         slide.style.opacity = i === index ? '1' : '0';
+        slide.classList.toggle('active', i === index);
     });
-    indicators.forEach((indicator, i) => {
-        indicator.classList.toggle('bg-white', i === index);
-        indicator.classList.toggle('bg-white/60', i !== index);
-    });
+    if (indicators.length) {
+        indicators.forEach((indicator, i) => {
+            indicator.classList.toggle('bg-white', i === index);
+            indicator.classList.toggle('bg-white/60', i !== index);
+        });
+    }
 }
 
 function nextSlide() {
@@ -386,8 +430,10 @@ function prevSlide() {
 }
 
 // Event listeners
-document.getElementById('nextSlide')?.addEventListener('click', nextSlide);
-document.getElementById('prevSlide')?.addEventListener('click', prevSlide);
+const nextBtn = document.getElementById('nextSlide');
+const prevBtn = document.getElementById('prevSlide');
+if (nextBtn) nextBtn.addEventListener('click', nextSlide);
+if (prevBtn) prevBtn.addEventListener('click', prevSlide);
 
 indicators.forEach((indicator, index) => {
     indicator.addEventListener('click', () => {

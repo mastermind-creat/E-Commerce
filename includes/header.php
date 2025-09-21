@@ -83,6 +83,15 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
         transform: scale(1.02);
         box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
     }
+    /* Hero carousel overlay styling */
+    .hero-slide img { filter: brightness(0.78); transform-origin: center; transition: transform 8s ease; }
+    .hero-slide.active img { transform: scale(1.06); }
+    .hero-slide .overlay-card { backdrop-filter: blur(4px); }
+    .hero-slide .overlay-card h2 { text-shadow: 0 6px 18px rgba(0,0,0,0.45); }
+    .hero-slide .overlay-card p { text-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+    @media (min-width: 1024px) {
+        .hero-slide .overlay-card { max-width: 640px; }
+    }
     </style>
 </head>
 
