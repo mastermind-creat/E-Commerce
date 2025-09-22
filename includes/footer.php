@@ -7,7 +7,8 @@
             <div class="space-y-4">
                 <div class="flex items-center space-x-2">
                     <!-- System uses icon for logo -->
-                    <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-pink-600 rounded-lg flex items-center justify-center">
+                    <div
+                        class="w-10 h-10 bg-gradient-to-br from-primary-500 to-pink-600 rounded-lg flex items-center justify-center">
                         <i data-feather="shopping-bag" class="w-6 h-6 text-white"></i>
                     </div>
                     <div>
@@ -23,25 +24,25 @@
                 <div class="flex space-x-4">
                     <?php if ($fbUrl = get_setting('facebook_url')): ?>
                     <a href="<?= htmlspecialchars($fbUrl) ?>" target="_blank" rel="noopener"
-                        class="text-gray-400 hover:text-white transition-colors">
+                        class="text-gray-400 hover:text-pink-400 transition-colors">
                         <i data-feather="facebook" class="w-5 h-5"></i>
                     </a>
                     <?php endif; ?>
                     <?php if ($igUrl = get_setting('instagram_url')): ?>
                     <a href="<?= htmlspecialchars($igUrl) ?>" target="_blank" rel="noopener"
-                        class="text-gray-400 hover:text-white transition-colors">
+                        class="text-gray-400 hover:text-pink-400 transition-colors">
                         <i data-feather="instagram" class="w-5 h-5"></i>
                     </a>
                     <?php endif; ?>
                     <?php if ($twUrl = get_setting('twitter_url')): ?>
                     <a href="<?= htmlspecialchars($twUrl) ?>" target="_blank" rel="noopener"
-                        class="text-gray-400 hover:text-white transition-colors">
+                        class="text-gray-400 hover:text-pink-400 transition-colors">
                         <i data-feather="twitter" class="w-5 h-5"></i>
                     </a>
                     <?php endif; ?>
                     <?php if ($liUrl = get_setting('linkedin_url')): ?>
                     <a href="<?= htmlspecialchars($liUrl) ?>" target="_blank" rel="noopener"
-                        class="text-gray-400 hover:text-white transition-colors">
+                        class="text-gray-400 hover:text-pink-400 transition-colors">
                         <i data-feather="linkedin" class="w-5 h-5"></i>
                     </a>
                     <?php endif; ?>
@@ -52,17 +53,18 @@
             <div class="space-y-4">
                 <h4 class="text-lg font-semibold">Quick Links</h4>
                 <ul class="space-y-2">
-                    <li><a href="index.php" class="text-gray-300 hover:text-white transition-colors text-sm">Home</a>
+                    <li><a href="index.php" class="text-gray-300 hover:text-pink-400 transition-colors text-sm">Home</a>
                     </li>
-                    <li><a href="shop.php" class="text-gray-300 hover:text-white transition-colors text-sm">Shop All</a>
+                    <li><a href="shop.php" class="text-gray-300 hover:text-pink-400 transition-colors text-sm">Shop
+                            All</a>
                     </li>
                     <li><a href="shop.php?category=clothes"
-                            class="text-gray-300 hover:text-white transition-colors text-sm">Clothes</a></li>
+                            class="text-gray-300 hover:text-pink-400 transition-colors text-sm">Clothes</a></li>
                     <li><a href="shop.php?category=bags"
-                            class="text-gray-300 hover:text-white transition-colors text-sm">Bags</a></li>
+                            class="text-gray-300 hover:text-pink-400 transition-colors text-sm">Bags</a></li>
                     <li><a href="shop.php?category=jewelry"
-                            class="text-gray-300 hover:text-white transition-colors text-sm">Jewelry</a></li>
-                    <li><a href="about.php" class="text-gray-300 hover:text-white transition-colors text-sm">About
+                            class="text-gray-300 hover:text-pink-400 transition-colors text-sm">Jewelry</a></li>
+                    <li><a href="about.php" class="text-gray-300 hover:text-pink-400 transition-colors text-sm">About
                             Us</a></li>
                 </ul>
             </div>
@@ -71,16 +73,22 @@
             <div class="space-y-4">
                 <h4 class="text-lg font-semibold">Customer Service</h4>
                 <ul class="space-y-2">
-                    <li><a href="contact.php" class="text-gray-300 hover:text-white transition-colors text-sm">Contact
+                    <li><a href="contact.php"
+                            class="text-gray-300 hover:text-pink-400 transition-colors text-sm">Contact
                             Us</a></li>
-                    <li><a href="shipping.php" class="text-gray-300 hover:text-white transition-colors text-sm">Shipping
+                    <li><a href="shipping.php"
+                            class="text-gray-300 hover:text-pink-400 transition-colors text-sm">Shipping
                             Info</a></li>
-                    <li><a href="returns.php" class="text-gray-300 hover:text-white transition-colors text-sm">Returns &
+                    <li><a href="returns.php"
+                            class="text-gray-300 hover:text-pink-400 transition-colors text-sm">Returns &
                             Exchanges</a></li>
-                    <li><a href="size-guide.php" class="text-gray-300 hover:text-white transition-colors text-sm">Size
+                    <li><a href="size-guide.php"
+                            class="text-gray-300 hover:text-pink-400 transition-colors text-sm">Size
                             Guide</a></li>
-                    <li><a href="faq.php" class="text-gray-300 hover:text-white transition-colors text-sm">FAQ</a></li>
-                    <li><a href="privacy.php" class="text-gray-300 hover:text-white transition-colors text-sm">Privacy
+                    <li><a href="faq.php" class="text-gray-300 hover:text-pink-400 transition-colors text-sm">FAQ</a>
+                    </li>
+                    <li><a href="privacy.php"
+                            class="text-gray-300 hover:text-pink-400 transition-colors text-sm">Privacy
                             Policy</a></li>
                 </ul>
             </div>
