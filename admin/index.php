@@ -76,9 +76,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label class="block text-sm font-medium mb-1">Password</label>
                 <div class="relative">
                     <i data-feather="lock" class="absolute left-3 top-3 text-gray-400 w-4 h-4"></i>
-                    <input type="password" name="password" required
-                        class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 focus:outline-none"
+                    <input id="adminPasswordInput" type="password" name="password" required
+                        class="w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 focus:outline-none"
                         placeholder="••••••••">
+                    <button type="button" id="togglePassword"
+                        class="absolute right-3 top-2.5 bg-transparent p-0 h-6 w-6 text-gray-400 focus:outline-none flex items-center justify-center"
+                        tabindex="-1"
+                        aria-label="Show password"
+                        >
+                        <i data-feather="eye" id="passwordEyeIcon"></i>
+                    </button>
                 </div>
             </div>
 
@@ -98,7 +105,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script>
+    // Replace feather icons initially
     feather.replace();
+
+    // View password functionality
+    const passwordInput = document.getElementById('adminPasswordInput');
+    const togglePassword = document.getElementById('togglePassword');
+    let passwordVisible = false;
+
+    if (togglePassword && passwordInput) {
+        togglePassword.addEventListener('click', function (e) {
+            e.preventDefault();
+            passwordVisible = !passwordVisible;
+            passwordInput.type = passwordVisible ? 'text' : 'password';
+            // Update eye/eye-off icon
+            let iconEl = document.getElementById('passwordEyeIcon');
+            if (iconEl) {
+                iconEl.outerHTML = passwordVisible
+                    ? feather.icons['eye-off'].toSvg({ id: 'passwordEyeIcon' })
+                    : feather.icons['eye'].toSvg({ id: 'passwordEyeIcon' });
+            }
+        });
+    }
     </script>
 </body>
 

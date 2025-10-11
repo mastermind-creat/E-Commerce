@@ -274,7 +274,7 @@ include __DIR__ . '/../includes/header.php';
 
                 <!-- Products Grid -->
                 <?php if (!empty($products)): ?>
-                <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div id="productsGrid" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     <?php foreach ($products as $product): ?>
                     <div
                         class="product-card group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden">
@@ -297,7 +297,7 @@ include __DIR__ . '/../includes/header.php';
                                     data-img-resolved="<?= htmlspecialchars($imgUrl) ?>"
                                     data-img-file="<?= htmlspecialchars($imgFile) ?>"
                                     data-img-exists="<?= $imgExists ? '1' : '0' ?>"
-                                    class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                                    class="w-full h-48 sm:h-64 object-cover group-hover:scale-105 transition-transform duration-300"
                                     onerror="this.src='<?= htmlspecialchars(product_image_url(null)) ?>'">
                                 <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors">
                                 </div>
@@ -320,15 +320,15 @@ include __DIR__ . '/../includes/header.php';
                                 </div>
                                 <?php endif; ?>
                             </div>
-                            <div class="p-6">
-                                <div class="text-sm text-primary-600 font-medium mb-1">
+                            <div class="p-3 sm:p-6">
+                                <div class="text-xs sm:text-sm text-primary-600 font-medium mb-1">
                                     <?= htmlspecialchars($product['category_name'] ?? 'Uncategorized') ?></div>
-                                <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">
+                                <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2 text-sm sm:text-base">
                                     <?= htmlspecialchars($product['name']) ?></h3>
-                                <p class="text-gray-600 text-sm mb-4 line-clamp-2">
-                                    <?= htmlspecialchars(substr($product['description'], 0, 100)) ?>...</p>
-                                <div class="flex items-center justify-between">
-                                    <span class="text-2xl font-bold text-gray-900">KSh
+                                <p class="text-gray-600 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-2">
+                                    <?= htmlspecialchars(substr($product['description'], 0, 80)) ?>...</p>
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <span class="text-lg sm:text-2xl font-bold text-gray-900">KSh
                                         <?= number_format($product['price'], 2) ?></span>
                                     <div class="flex items-center text-yellow-400">
                                         <?php
@@ -336,9 +336,9 @@ include __DIR__ . '/../includes/header.php';
                                             $avg = isset($productRatings[$pid]) && $productRatings[$pid]['avg_rating'] !== null ? round($productRatings[$pid]['avg_rating'], 1) : null;
                                             $count = isset($productRatings[$pid]) ? (int)$productRatings[$pid]['review_count'] : 0;
                                         ?>
-                                        <?= render_stars($avg, 14) ?>
+                                        <?= render_stars($avg, 12) ?>
                                         <span
-                                            class="text-gray-500 text-sm ml-2">(<?= htmlspecialchars(format_rating_text($avg, $count)) ?>)</span>
+                                            class="text-gray-500 text-xs sm:text-sm ml-1 sm:ml-2">(<?= htmlspecialchars(format_rating_text($avg, $count)) ?>)</span>
                                     </div>
                                 </div>
                             </div>
@@ -500,13 +500,13 @@ document.getElementById('mobileFilterOverlay')?.addEventListener('click', () => 
 
 // View toggle
 document.getElementById('gridView')?.addEventListener('click', () => {
-    document.getElementById('productsGrid').className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6';
+    document.getElementById('productsGrid').className = 'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6';
     document.getElementById('gridView').className = 'p-2 rounded-md bg-primary-100 text-primary-600';
     document.getElementById('listView').className = 'p-2 rounded-md text-gray-400 hover:text-gray-600';
 });
 
 document.getElementById('listView')?.addEventListener('click', () => {
-    document.getElementById('productsGrid').className = 'grid grid-cols-1 gap-6';
+    document.getElementById('productsGrid').className = 'grid grid-cols-2 sm:grid-cols-1 gap-4 sm:gap-6';
     document.getElementById('listView').className = 'p-2 rounded-md bg-primary-100 text-primary-600';
     document.getElementById('gridView').className = 'p-2 rounded-md text-gray-400 hover:text-gray-600';
 });

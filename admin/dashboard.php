@@ -143,59 +143,59 @@ $ordersGrowth = $lastMonthOrders > 0 ? (($currentMonthOrders - $lastMonthOrders)
         </div>
 
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="stat-card rounded-2xl p-6 text-white">
+        <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <div class="stat-card rounded-2xl p-3 sm:p-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-white/80 text-sm font-medium">Total Products</p>
-                        <p class="text-3xl font-bold"><?= number_format($productsCount) ?></p>
-                        <p class="text-white/80 text-sm mt-1">Active products</p>
+                        <p class="text-white/80 text-xs sm:text-sm font-medium">Total Products</p>
+                        <p class="text-xl sm:text-3xl font-bold"><?= number_format($productsCount) ?></p>
+                        <p class="text-white/80 text-xs sm:text-sm mt-1">Active products</p>
                     </div>
-                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                        <i data-feather="package" class="w-6 h-6"></i>
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-feather="package" class="w-4 h-4 sm:w-6 sm:h-6"></i>
                     </div>
                 </div>
             </div>
 
-            <div class="stat-card rounded-2xl p-6 text-white">
+            <div class="stat-card rounded-2xl p-3 sm:p-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-white/80 text-sm font-medium">Total Orders</p>
-                        <p class="text-3xl font-bold"><?= number_format($ordersCount) ?></p>
-                        <p class="text-white/80 text-sm mt-1">
+                        <p class="text-white/80 text-xs sm:text-sm font-medium">Total Orders</p>
+                        <p class="text-xl sm:text-3xl font-bold"><?= number_format($ordersCount) ?></p>
+                        <p class="text-white/80 text-xs sm:text-sm mt-1">
                             <?= $ordersGrowth >= 0 ? '+' : '' ?><?= number_format($ordersGrowth, 1) ?>% this month
                         </p>
                     </div>
-                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                        <i data-feather="shopping-cart" class="w-6 h-6"></i>
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-feather="shopping-cart" class="w-4 h-4 sm:w-6 sm:h-6"></i>
                     </div>
                 </div>
             </div>
 
-            <div class="stat-card rounded-2xl p-6 text-white">
+            <div class="stat-card rounded-2xl p-3 sm:p-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-white/80 text-sm font-medium">Total Sales</p>
-                        <p class="text-3xl font-bold">KSh <?= number_format($totalSales, 0) ?></p>
-                        <p class="text-white/80 text-sm mt-1">
+                        <p class="text-white/80 text-xs sm:text-sm font-medium">Total Sales</p>
+                        <p class="text-xl sm:text-3xl font-bold">KSh <?= number_format($totalSales, 0) ?></p>
+                        <p class="text-white/80 text-xs sm:text-sm mt-1">
                             <?= $salesGrowth >= 0 ? '+' : '' ?><?= number_format($salesGrowth, 1) ?>% this month
                         </p>
                     </div>
-                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                        <i data-feather="dollar-sign" class="w-6 h-6"></i>
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-feather="dollar-sign" class="w-4 h-4 sm:w-6 sm:h-6"></i>
                     </div>
                 </div>
             </div>
 
-            <div class="stat-card rounded-2xl p-6 text-white">
+            <div class="stat-card rounded-2xl p-3 sm:p-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-white/80 text-sm font-medium">Customers</p>
-                        <p class="text-3xl font-bold"><?= number_format($customersCount) ?></p>
-                        <p class="text-white/80 text-sm mt-1">Registered users</p>
+                        <p class="text-white/80 text-xs sm:text-sm font-medium">Customers</p>
+                        <p class="text-xl sm:text-3xl font-bold"><?= number_format($customersCount) ?></p>
+                        <p class="text-white/80 text-xs sm:text-sm mt-1">Registered users</p>
                     </div>
-                    <div class="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                        <i data-feather="users" class="w-6 h-6"></i>
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i data-feather="users" class="w-4 h-4 sm:w-6 sm:h-6"></i>
                     </div>
                 </div>
             </div>
@@ -294,7 +294,7 @@ $ordersGrowth = $lastMonthOrders > 0 ? (($currentMonthOrders - $lastMonthOrders)
         </div>
 
         <!-- Quick Actions -->
-        <div class="mt-8 bg-white rounded-2xl shadow-lg p-6">
+        <div class="mt-8 bg-white rounded-2xl shadow-lg p-6 mb-12">
             <h3 class="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <a href="add_product.php"

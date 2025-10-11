@@ -14,8 +14,21 @@ $cartCount = array_sum(array_column($_SESSION['cart'], 'quantity')) ?? 0;
 
 // Is user logged in
 $isLoggedIn = isset($_SESSION['user_id']);
-$userName  = $isLoggedIn ? $_SESSION['user_name'] : null;
-$userRole  = $isLoggedIn ? ($_SESSION['user_role'] ?? null) : null;
+$userRole = $isLoggedIn ? ($_SESSION['user_role'] ?? null) : null;
+
+// Get user name from database if logged in
+$userName = null;
+if ($isLoggedIn) {
+    try {
+        $stmt = $pdo->prepare("SELECT name FROM users WHERE id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch();
+        $userName = $user['name'] ?? 'User';
+    } catch (PDOException $e) {
+        error_log("Error fetching user name: " . $e->getMessage());
+        $userName = 'User';
+    }
+}
 
 // Get current page for active navigation
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
@@ -26,24 +39,30 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= isset($pageTitle) ? $pageTitle . ' - ' : '' ?><?= get_setting('site_title', 'Springs Ministries Store') ?></title>
-    
+    <title>
+        <?= isset($pageTitle) ? $pageTitle . ' - ' : '' ?><?= get_setting('site_title', 'Springs Ministries Store') ?>
+    </title>
+
     <!-- Meta Tags -->
-    <meta name="description" content="<?= get_setting('site_description', 'Quality clothes, bags, jewelry and more. Fast delivery, great prices.') ?>">
+    <meta name="description"
+        content="<?= get_setting('site_description', 'Quality clothes, bags, jewelry and more. Fast delivery, great prices.') ?>">
     <meta name="keywords" content="<?= get_setting('site_keywords', 'ecommerce, online shopping, products') ?>">
     <meta name="robots" content="<?= get_setting('meta_robots', 'index, follow') ?>">
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/<?= get_setting('site_favicon', 'assets/images/favicon.ico') ?>">
-    
+
     <!-- Google Analytics -->
     <?php if ($gaId = get_setting('google_analytics_id')): ?>
     <script async src="https://www.googletagmanager.com/gtag/js?id=<?= htmlspecialchars($gaId) ?>"></script>
     <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', '<?= htmlspecialchars($gaId) ?>');
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+        dataLayer.push(arguments);
+    }
+    gtag('js', new Date());
+    gtag('config', '<?= htmlspecialchars($gaId) ?>');
     </script>
     <?php endif; ?>
 
@@ -101,14 +120,34 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
         transform: scale(1.02);
         box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
     }
+
     /* Hero carousel overlay styling */
-    .hero-slide img { filter: brightness(0.78); transform-origin: center; transition: transform 8s ease; }
-    .hero-slide.active img { transform: scale(1.06); }
-    .hero-slide .overlay-card { backdrop-filter: blur(4px); }
-    .hero-slide .overlay-card h2 { text-shadow: 0 6px 18px rgba(0,0,0,0.45); }
-    .hero-slide .overlay-card p { text-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+    .hero-slide img {
+        filter: brightness(0.78);
+        transform-origin: center;
+        transition: transform 8s ease;
+    }
+
+    .hero-slide.active img {
+        transform: scale(1.06);
+    }
+
+    .hero-slide .overlay-card {
+        backdrop-filter: blur(4px);
+    }
+
+    .hero-slide .overlay-card h2 {
+        text-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    }
+
+    .hero-slide .overlay-card p {
+        text-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    }
+
     @media (min-width: 1024px) {
-        .hero-slide .overlay-card { max-width: 640px; }
+        .hero-slide .overlay-card {
+            max-width: 640px;
+        }
     }
     </style>
 </head>
@@ -202,7 +241,8 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                             <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
                                 <i data-feather="user" class="w-4 h-4 text-primary-600"></i>
                             </div>
-                            <span class="hidden sm:block text-sm font-medium"><?= htmlspecialchars($userName) ?></span>
+                            <span
+                                class="hidden sm:block text-sm font-medium"><?= htmlspecialchars($userName ?? 'User') ?></span>
                             <i data-feather="chevron-down" class="w-4 h-4"></i>
                         </button>
                         <?php else: ?>

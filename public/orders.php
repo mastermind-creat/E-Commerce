@@ -13,7 +13,7 @@ $userId = $_SESSION['user_id'];
 $activeStmt = $pdo->prepare(
     "SELECT o.*, COALESCE(o.order_status, o.status) AS display_status
      FROM orders o
-     WHERE o.user_id = ? AND COALESCE(o.order_status, o.status) IN ('Pending','Processing','Shipped')
+     WHERE o.user_id = ? AND COALESCE(o.order_status, o.status) IN ('Pending','confirmed','Processing','Shipped')
      ORDER BY o.created_at DESC"
 );
 $activeStmt->execute([$userId]);
