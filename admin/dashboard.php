@@ -86,10 +86,28 @@ try {
         ORDER BY month ASC
     ")->fetchAll(PDO::FETCH_ASSOC);
 
+    // Low stock alerts
+    $lowStockProducts = $pdo->query("
+        SELECT id, name, stock, price
+        FROM products 
+        WHERE status = 'active' AND stock <= 10 AND stock > 0
+        ORDER BY stock ASC
+        LIMIT 10
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    $outOfStockProducts = $pdo->query("
+        SELECT id, name, stock, price
+        FROM products 
+        WHERE status = 'active' AND stock = 0
+        ORDER BY name ASC
+        LIMIT 10
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
 } catch (Exception $e) {
     $productsCount = $ordersCount = $customersCount = $categoriesCount = 0;
     $totalSales = $monthlySales = $todaySales = 0;
     $orderStatusData = $paymentStatusData = $recentOrders = $topProducts = $monthlySalesData = [];
+    $lowStockProducts = $outOfStockProducts = [];
 }
 
 // Calculate growth percentages
@@ -127,6 +145,13 @@ $ordersGrowth = $lastMonthOrders > 0 ? (($currentMonthOrders - $lastMonthOrders)
     .stat-card:nth-child(4) {
         background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
     }
+
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
     </style>
 </head>
 
@@ -138,9 +163,117 @@ $ordersGrowth = $lastMonthOrders > 0 ? (($currentMonthOrders - $lastMonthOrders)
     <main class="flex-1 p-6 lg:ml-64">
         <!-- Header -->
         <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-            <p class="text-gray-600 mt-2">Welcome back! Here's what's happening with your store.</p>
+            <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white relative overflow-hidden">
+                <div class="absolute inset-0 bg-black/10"></div>
+                <div class="relative z-10">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h1 class="text-3xl sm:text-4xl font-bold mb-2">Dashboard Overview</h1>
+                            <p class="text-blue-100 text-lg">Welcome back! Here's what's happening with your store.</p>
+                        </div>
+                        <div class="mt-4 sm:mt-0 flex items-center space-x-4">
+                            <div class="text-right">
+                                <p class="text-blue-100 text-sm">Today's Sales</p>
+                                <p class="text-2xl font-bold">KSh <?= number_format($todaySales, 0) ?></p>
+                            </div>
+                            <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                                <i data-feather="trending-up" class="w-8 h-8"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Decorative elements -->
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16"></div>
+                <div class="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12"></div>
+            </div>
         </div>
+
+        <!-- Low Stock Alerts -->
+        <?php if (!empty($lowStockProducts) || !empty($outOfStockProducts)): ?>
+        <div class="mb-8">
+            <div class="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-2xl p-6">
+                <div class="flex items-center mb-4">
+                    <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                        <i data-feather="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-red-800">Stock Alerts</h3>
+                        <p class="text-red-600 text-sm">Products running low or out of stock</p>
+                    </div>
+                </div>
+                
+                <!-- Low Stock Products -->
+                <?php if (!empty($lowStockProducts)): ?>
+                <div class="mb-6">
+                    <h4 class="font-medium text-red-800 mb-4 flex items-center">
+                        <i data-feather="alert-circle" class="w-4 h-4 mr-2"></i>
+                        Low Stock (≤10 items)
+                    </h4>
+                    <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        <?php foreach ($lowStockProducts as $product): ?>
+                        <div class="bg-white rounded-lg p-4 border border-red-200 hover:shadow-md transition-shadow">
+                            <div class="flex flex-col h-full">
+                                <div class="flex-1">
+                                    <h5 class="text-sm font-medium text-gray-900 mb-1 line-clamp-2"><?= htmlspecialchars($product['name']) ?></h5>
+                                    <p class="text-xs text-gray-500 mb-3">KSh <?= number_format($product['price'], 2) ?></p>
+                                </div>
+                                <div class="flex flex-col space-y-2">
+                                    <span class="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 w-fit">
+                                        <?= $product['stock'] ?> left
+                                    </span>
+                                    <a href="edit_product.php?id=<?= $product['id'] ?>" 
+                                       class="text-red-600 hover:text-red-800 text-xs font-medium text-center py-1 hover:bg-red-50 rounded transition-colors">
+                                        Restock
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- Out of Stock Products -->
+                <?php if (!empty($outOfStockProducts)): ?>
+                <div class="mb-6">
+                    <h4 class="font-medium text-red-800 mb-4 flex items-center">
+                        <i data-feather="x-circle" class="w-4 h-4 mr-2"></i>
+                        Out of Stock
+                    </h4>
+                    <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        <?php foreach ($outOfStockProducts as $product): ?>
+                        <div class="bg-white rounded-lg p-4 border border-red-200 hover:shadow-md transition-shadow">
+                            <div class="flex flex-col h-full">
+                                <div class="flex-1">
+                                    <h5 class="text-sm font-medium text-gray-900 mb-1 line-clamp-2"><?= htmlspecialchars($product['name']) ?></h5>
+                                    <p class="text-xs text-gray-500 mb-3">KSh <?= number_format($product['price'], 2) ?></p>
+                                </div>
+                                <div class="flex flex-col space-y-2">
+                                    <span class="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 w-fit">
+                                        Out of stock
+                                    </span>
+                                    <a href="edit_product.php?id=<?= $product['id'] ?>" 
+                                       class="text-red-600 hover:text-red-800 text-xs font-medium text-center py-1 hover:bg-red-50 rounded transition-colors">
+                                        Restock
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <div class="mt-4 pt-4 border-t border-red-200">
+                    <a href="products.php" 
+                       class="inline-flex items-center text-red-600 hover:text-red-800 font-medium text-sm">
+                        <i data-feather="arrow-right" class="w-4 h-4 mr-1"></i>
+                        Manage all products
+                    </a>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
