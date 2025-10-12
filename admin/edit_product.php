@@ -80,10 +80,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $price       = $_POST['price'];
     $stock       = (int) $_POST['stock'];
     $category_id = $_POST['category_id'];
+    
+    // Discount fields
+    $discount_percentage = $_POST['discount_percentage'] ?? 0;
+    $discount_start_date = $_POST['discount_start_date'] ?: null;
+    $discount_end_date = $_POST['discount_end_date'] ?: null;
+    $is_discounted = ($discount_percentage > 0) ? 1 : 0;
 
     // First update product basic details
-    $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, stock=?, category_id=? WHERE id=?");
-    $stmt->execute([$name, $description, $price, $stock, $category_id, $product_id]);
+    $stmt = $pdo->prepare("UPDATE products SET name=?, description=?, price=?, stock=?, category_id=?, discount_percentage=?, discount_start_date=?, discount_end_date=?, is_discounted=? WHERE id=?");
+    $stmt->execute([$name, $description, $price, $stock, $category_id, $discount_percentage, $discount_start_date, $discount_end_date, $is_discounted, $product_id]);
 
     // --- Update Existing Variants ---
     if (!empty($_POST['variant_id'])) {
@@ -94,8 +100,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $variantImagePath = $_POST['existing_variant_image'][$i] ?? null;
             if (!empty($_FILES['variant_image']['name'][$i])) {
-                $uploadDir = "../public/assets/variants/";
-                if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+                $uploadDir = "/opt/lampp/htdocs/E-Commerce/public/assets/variants/";
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                    chmod($uploadDir, 0755);
+                }
                 $fileName = uniqid() . "_" . basename($_FILES['variant_image']['name'][$i]);
                 $targetFile = $uploadDir . $fileName;
 
@@ -138,8 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $variantImagePath = null;
 
                 if (!empty($_FILES['new_variant_image']['name'][$i])) {
-                    $uploadDir = "../public/assets/variants/";
-                    if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+                    $uploadDir = "/opt/lampp/htdocs/E-Commerce/public/assets/variants/";
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                        chmod($uploadDir, 0755);
+                    }
                     $fileName = uniqid() . "_" . basename($_FILES['new_variant_image']['name'][$i]);
                     $targetFile = $uploadDir . $fileName;
                     if (move_uploaded_file($_FILES['new_variant_image']['tmp_name'][$i], $targetFile)) {
@@ -160,14 +172,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Handle new product images
     if (!empty($_FILES['images']['name'][0])) {
-        foreach ($_FILES['images']['tmp_name'] as $key => $tmp_name) {
-            if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
-                $filename = uniqid() . "_" . basename($_FILES['images']['name'][$key]);
-                $targetPath = "../public/assets/products/" . $filename;
-                move_uploaded_file($tmp_name, $targetPath);
+        $uploadDir = realpath(__DIR__ . '/../public/assets/products/') . '/';
+        
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
 
-                $stmt = $pdo->prepare("INSERT INTO product_images (product_id, image_url) VALUES (?, ?)");
-                $stmt->execute([$product_id, $filename]);
+        if (!is_writable($uploadDir)) {
+            $error = "Upload directory not writable: " . htmlspecialchars($uploadDir);
+        } else {
+            $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff', 'image/svg+xml'];
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'];
+            
+            $uploadedCount = 0;
+            $totalFiles = count($_FILES['images']['name']);
+            
+            for ($key = 0; $key < $totalFiles; $key++) {
+                if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
+                    $originalName = $_FILES['images']['name'][$key];
+                    $tmpName = $_FILES['images']['tmp_name'][$key];
+                    $fileType = $_FILES['images']['type'][$key];
+                    $fileExtension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+                    if (in_array($fileType, $allowedTypes) && in_array($fileExtension, $allowedExtensions)) {
+                        $filename = uniqid('prod_', true) . '.' . $fileExtension;
+                        $targetPath = $uploadDir . $filename;
+
+                        if (move_uploaded_file($tmpName, $targetPath)) {
+                            $stmt = $pdo->prepare("INSERT INTO product_images (product_id, image_url) VALUES (?, ?)");
+                            $stmt->execute([$product_id, $filename]);
+                            $uploadedCount++;
+                        } else {
+                            error_log("Failed to move uploaded file: $originalName → $targetPath");
+                        }
+                    } else {
+                        error_log("Invalid file: $originalName ($fileType)");
+                    }
+                } else {
+                    error_log("Upload error code: " . $_FILES['images']['error'][$key]);
+                }
             }
         }
     }
@@ -207,13 +250,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-gray-700">Price (Ksh)</label>
-                    <input type="number" step="0.01" name="price" value="<?= htmlspecialchars($product['price']) ?>"
-                        class="w-full border rounded p-2" required>
+                    <input type="number" step="0.01" name="price" id="price"
+                        value="<?= htmlspecialchars($product['price']) ?>" class="w-full border rounded p-2" required
+                        onchange="calculateDiscountedPrice()">
                 </div>
                 <div>
                     <label class="block text-gray-700">Stock</label>
                     <input type="number" name="stock" value="<?= htmlspecialchars($product['stock']) ?>"
                         class="w-full border rounded p-2" required>
+                </div>
+            </div>
+
+            <!-- Discount Section -->
+            <div class="p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border border-orange-200">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i data-feather="percent" class="w-5 h-5 mr-2 text-orange-600"></i>
+                    Discount Settings <span class="text-sm font-normal text-gray-600 ml-2">(Optional)</span>
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block mb-1 font-medium text-gray-700">Discount Percentage</label>
+                        <input type="number" step="0.01" min="0" max="100" name="discount_percentage"
+                            id="discount_percentage"
+                            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                            placeholder="0.00" value="<?= htmlspecialchars($product['discount_percentage'] ?? 0) ?>"
+                            onchange="calculateDiscountedPrice()">
+                        <small class="text-gray-500">Enter percentage (0-100) - Leave empty for no discount</small>
+                    </div>
+                    <div>
+                        <label class="block mb-1 font-medium text-gray-700">Start Date</label>
+                        <input type="datetime-local" name="discount_start_date" id="discount_start_date"
+                            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                            value="<?= $product['discount_start_date'] ? date('Y-m-d\TH:i', strtotime($product['discount_start_date'])) : '' ?>">
+                        <small class="text-gray-500">Optional - Leave empty for immediate start</small>
+                    </div>
+                    <div>
+                        <label class="block mb-1 font-medium text-gray-700">End Date</label>
+                        <input type="datetime-local" name="discount_end_date" id="discount_end_date"
+                            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                            value="<?= $product['discount_end_date'] ? date('Y-m-d\TH:i', strtotime($product['discount_end_date'])) : '' ?>">
+                        <small class="text-gray-500">Optional - Leave empty for no end date</small>
+                    </div>
+                </div>
+
+                <!-- Price Preview -->
+                <div id="price-preview" class="mt-4 p-3 bg-white rounded-lg border border-orange-200 hidden">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Original Price:</span>
+                        <span id="original-price" class="text-lg font-semibold text-gray-800"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">Discounted Price:</span>
+                        <span id="discounted-price" class="text-xl font-bold text-green-600"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-600">You Save:</span>
+                        <span id="savings" class="text-lg font-semibold text-red-600"></span>
+                    </div>
                 </div>
             </div>
 
@@ -278,7 +372,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div>
                 <label class="block text-gray-700">Add New Product Images</label>
-                <input type="file" name="images[]" multiple class="w-full border rounded p-2">
+                <input type="file" name="images[]" multiple accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.svg"
+                    class="w-full border rounded p-2">
+                <small class="text-gray-500">JPG, JPEG, PNG, GIF, WebP, BMP, TIFF, SVG supported</small>
             </div>
 
             <div>

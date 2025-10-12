@@ -121,6 +121,10 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
         box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
     }
 
+    .suggestion-item.active {
+        background-color: #f3f4f6;
+    }
+
     /* Hero carousel overlay styling */
     .hero-slide img {
         filter: brightness(0.78);
@@ -174,26 +178,26 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
     </div>
 
     <!-- Main Header -->
-    <header class="bg-white shadow-lg sticky top-0 z-50">
+    <header class="bg-white/80 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-white/20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <!-- Top Row -->
             <div class="flex items-center justify-between h-16">
                 <!-- Mobile Menu Button -->
                 <button id="mobileMenuToggle"
-                    class="lg:hidden p-2 rounded-md text-gray-600 hover:text-primary-600 hover:bg-gray-100">
-                    <i data-feather="menu" class="w-6 h-6"></i>
+                    class="lg:hidden p-3 rounded-xl text-gray-600 hover:text-primary-600 bg-white/50 backdrop-blur-sm hover:bg-white/80 border border-white/20 hover:border-primary-200 transition-all duration-300 shadow-lg hover:shadow-xl">
+                    <i data-feather="menu" class="w-5 h-5"></i>
                 </button>
 
                 <!-- Logo -->
                 <div class="flex-shrink-0">
-                    <a href="index.php" class="flex items-center space-x-2">
+                    <a href="index.php" class="group flex items-center space-x-3 p-2 rounded-xl hover:bg-white/30 transition-all duration-300">
                         <div
-                            class="w-10 h-10 bg-gradient-to-br from-primary-500 to-pink-600 rounded-lg flex items-center justify-center">
-                            <i data-feather="shopping-bag" class="w-6 h-6 text-white"></i>
+                            class="w-12 h-12 bg-gradient-to-br from-primary-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
+                            <i data-feather="shopping-bag" class="w-6 h-6 text-white group-hover:scale-110 transition-transform duration-300"></i>
                         </div>
                         <div class="hidden sm:block">
-                            <h1 class="text-xl font-bold text-gray-900">Springs Store</h1>
-                            <p class="text-xs text-gray-500">Ministries</p>
+                            <h1 class="text-xl font-bold text-gray-900 group-hover:text-primary-700 transition-colors duration-300">Springs Store</h1>
+                            <p class="text-xs text-gray-500 group-hover:text-primary-600 transition-colors duration-300">Ministries</p>
                         </div>
                     </a>
                 </div>
@@ -202,32 +206,54 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                 <div class="hidden lg:flex flex-1 max-w-lg mx-8">
                     <form action="shop.php" method="GET" class="w-full">
                         <div class="relative">
-                            <input type="text" name="search" placeholder="Search products..."
-                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
-                                value="<?= htmlspecialchars($_GET['search'] ?? '') ?>">
+                            <input type="text" name="search" id="searchInput" placeholder="Search products..."
+                                class="w-full pl-12 pr-6 py-3 bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-300/50 focus:bg-white/80 transition-all duration-300 shadow-lg hover:shadow-xl text-gray-900 placeholder-gray-500"
+                                value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
+                                autocomplete="off">
                             <button type="submit"
-                                class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-primary-600">
-                                <i data-feather="search" class="w-4 h-4"></i>
+                                class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-primary-600 transition-colors duration-300">
+                                <i data-feather="search" class="w-5 h-5"></i>
                             </button>
+                            
+                            <!-- Search Suggestions Dropdown -->
+                            <div id="searchSuggestions" class="hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-md border border-white/30 rounded-2xl shadow-2xl mt-2 z-50 max-h-80 overflow-y-auto">
+                                <div id="suggestionsList" class="py-3">
+                                    <!-- Suggestions will be populated here -->
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
 
                 <!-- Right Side Actions -->
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-3">
                     <!-- Search Button (Mobile) -->
                     <button id="searchToggle"
-                        class="lg:hidden p-2 rounded-md text-gray-600 hover:text-primary-600 hover:bg-gray-100">
+                        class="lg:hidden p-3 rounded-xl text-gray-600 hover:text-primary-600 bg-white/50 backdrop-blur-sm hover:bg-white/80 border border-white/20 hover:border-primary-200 transition-all duration-300 shadow-lg hover:shadow-xl">
                         <i data-feather="search" class="w-5 h-5"></i>
                     </button>
 
+                    <!-- Compare -->
+                    <a href="compare.php"
+                        class="group relative p-3 rounded-xl text-gray-600 hover:text-primary-600 bg-white/50 backdrop-blur-sm hover:bg-white/80 border border-white/20 hover:border-orange-200 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
+                        <i data-feather="git-compare" class="w-5 h-5 group-hover:scale-110 transition-transform duration-300"></i>
+                        <?php 
+                        $compareCount = count($_SESSION['compare'] ?? []);
+                        if ($compareCount > 0): ?>
+                        <span
+                            class="absolute -top-1 -right-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold shadow-lg animate-pulse">
+                            <?= $compareCount ?>
+                        </span>
+                        <?php endif; ?>
+                    </a>
+
                     <!-- Cart -->
                     <a href="<?= $isLoggedIn ? 'cart.php' : 'login.php?redirect=cart' ?>"
-                        class="relative p-2 rounded-md text-gray-600 hover:text-primary-600 hover:bg-gray-100 transition-colors">
-                        <i data-feather="shopping-cart" class="w-5 h-5"></i>
+                        class="group relative p-3 rounded-xl text-gray-600 hover:text-primary-600 bg-white/50 backdrop-blur-sm hover:bg-white/80 border border-white/20 hover:border-primary-200 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
+                        <i data-feather="shopping-cart" class="w-5 h-5 group-hover:scale-110 transition-transform duration-300"></i>
                         <?php if ($cartCount > 0): ?>
                         <span
-                            class="absolute -top-1 -right-1 bg-primary-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium cart-badge">
+                            class="absolute -top-1 -right-1 bg-gradient-to-r from-primary-500 to-primary-600 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold shadow-lg cart-badge animate-bounce">
                             <?= $cartCount > 99 ? '99+' : $cartCount ?>
                         </span>
                         <?php endif; ?>
@@ -237,49 +263,79 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                     <div class="relative">
                         <?php if ($isLoggedIn): ?>
                         <button id="userMenuToggle"
-                            class="flex items-center space-x-2 p-2 rounded-md text-gray-600 hover:text-primary-600 hover:bg-gray-100">
-                            <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                                <i data-feather="user" class="w-4 h-4 text-primary-600"></i>
+                            class="group flex items-center space-x-3 p-3 rounded-xl text-gray-600 hover:text-primary-600 bg-white/50 backdrop-blur-sm hover:bg-white/80 border border-white/20 hover:border-primary-200 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
+                            <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
+                                <i data-feather="user" class="w-5 h-5 text-white"></i>
                             </div>
-                            <span
-                                class="hidden sm:block text-sm font-medium"><?= htmlspecialchars($userName ?? 'User') ?></span>
-                            <i data-feather="chevron-down" class="w-4 h-4"></i>
+                            <div class="hidden sm:block text-left">
+                                <div class="text-sm font-semibold text-gray-900 group-hover:text-primary-700 transition-colors duration-300">
+                                    <?= htmlspecialchars($userName ?? 'User') ?>
+                                </div>
+                                <div class="text-xs text-gray-500 group-hover:text-primary-600 transition-colors duration-300">
+                                    My Account
+                                </div>
+                            </div>
+                            <i data-feather="chevron-down" class="w-4 h-4 group-hover:rotate-180 transition-transform duration-300"></i>
                         </button>
                         <?php else: ?>
                         <a href="login.php"
-                            class="flex items-center space-x-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors">
-                            <i data-feather="log-in" class="w-4 h-4"></i>
-                            <span class="hidden sm:block">Login</span>
+                            class="group flex items-center space-x-3 px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
+                            <div class="w-6 h-6 rounded-full bg-white/20 group-hover:bg-white/30 transition-colors duration-300 flex items-center justify-center">
+                                <i data-feather="log-in" class="w-4 h-4 group-hover:scale-110 transition-transform duration-300"></i>
+                            </div>
+                            <span class="hidden sm:block font-semibold">Login</span>
                         </a>
                         <?php endif; ?>
 
                         <!-- User Dropdown -->
                         <?php if ($isLoggedIn): ?>
                         <div id="userMenu"
-                            class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+                            class="hidden absolute right-0 mt-3 w-56 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/30 py-2 z-50">
                             <?php if ($userRole === 'admin'): ?>
                             <a href="../admin/dashboard.php"
-                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i data-feather="layout" class="w-4 h-4 mr-3"></i>
-                                Dashboard
+                                class="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-primary-50/80 hover:text-primary-700 transition-all duration-300 mx-2 rounded-xl">
+                                <div class="w-8 h-8 rounded-lg bg-primary-100 group-hover:bg-primary-200 flex items-center justify-center mr-3 transition-colors duration-300">
+                                    <i data-feather="layout" class="w-4 h-4 text-primary-600 group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <span class="font-medium">Dashboard</span>
                             </a>
                             <?php else: ?>
                             <a href="orders.php"
-                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i data-feather="package" class="w-4 h-4 mr-3"></i>
-                                My Orders
+                                class="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50/80 hover:text-blue-700 transition-all duration-300 mx-2 rounded-xl">
+                                <div class="w-8 h-8 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center mr-3 transition-colors duration-300">
+                                    <i data-feather="package" class="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <span class="font-medium">My Orders</span>
                             </a>
                             <a href="profile.php"
-                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i data-feather="user" class="w-4 h-4 mr-3"></i>
-                                Profile
+                                class="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-green-50/80 hover:text-green-700 transition-all duration-300 mx-2 rounded-xl">
+                                <div class="w-8 h-8 rounded-lg bg-green-100 group-hover:bg-green-200 flex items-center justify-center mr-3 transition-colors duration-300">
+                                    <i data-feather="user" class="w-4 h-4 text-green-600 group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <span class="font-medium">Profile</span>
+                            </a>
+                            <a href="wishlist.php"
+                                class="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-red-50/80 hover:text-red-700 transition-all duration-300 mx-2 rounded-xl">
+                                <div class="w-8 h-8 rounded-lg bg-red-100 group-hover:bg-red-200 flex items-center justify-center mr-3 transition-colors duration-300">
+                                    <i data-feather="heart" class="w-4 h-4 text-red-600 group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <span class="font-medium">Wishlist</span>
+                            </a>
+                            <a href="reviews.php"
+                                class="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-yellow-50/80 hover:text-yellow-700 transition-all duration-300 mx-2 rounded-xl">
+                                <div class="w-8 h-8 rounded-lg bg-yellow-100 group-hover:bg-yellow-200 flex items-center justify-center mr-3 transition-colors duration-300">
+                                    <i data-feather="star" class="w-4 h-4 text-yellow-600 group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <span class="font-medium">My Reviews</span>
                             </a>
                             <?php endif; ?>
-                            <hr class="my-1">
+                            <hr class="my-2 border-gray-200/50 mx-4">
                             <a href="logout.php"
-                                class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                <i data-feather="log-out" class="w-4 h-4 mr-3"></i>
-                                Logout
+                                class="group flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50/80 hover:text-red-700 transition-all duration-300 mx-2 rounded-xl">
+                                <div class="w-8 h-8 rounded-lg bg-red-100 group-hover:bg-red-200 flex items-center justify-center mr-3 transition-colors duration-300">
+                                    <i data-feather="log-out" class="w-4 h-4 text-red-600 group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <span class="font-medium">Logout</span>
                             </a>
                         </div>
                         <?php endif; ?>
@@ -292,10 +348,10 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                 <form action="shop.php" method="GET">
                     <div class="relative">
                         <input type="text" name="search" placeholder="Search products..."
-                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            class="w-full pl-12 pr-6 py-3 bg-white/60 backdrop-blur-sm border border-white/30 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-300/50 focus:bg-white/80 transition-all duration-300 shadow-lg hover:shadow-xl text-gray-900 placeholder-gray-500"
                             value="<?= htmlspecialchars($_GET['search'] ?? '') ?>">
-                        <button type="submit" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                            <i data-feather="search" class="w-4 h-4"></i>
+                        <button type="submit" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-primary-600 transition-colors duration-300">
+                            <i data-feather="search" class="w-5 h-5"></i>
                         </button>
                     </div>
                 </form>
@@ -434,6 +490,131 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
             userMenu.classList.add('hidden');
         }
     });
+
+    // Search suggestions
+    let searchTimeout;
+    const searchInput = document.getElementById('searchInput');
+    const searchSuggestions = document.getElementById('searchSuggestions');
+    const suggestionsList = document.getElementById('suggestionsList');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            clearTimeout(searchTimeout);
+            
+            if (query.length < 2) {
+                searchSuggestions.classList.add('hidden');
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                fetchSuggestions(query);
+            }, 300);
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
+                searchSuggestions.classList.add('hidden');
+            }
+        });
+
+        // Handle keyboard navigation
+        searchInput.addEventListener('keydown', function(e) {
+            const suggestions = suggestionsList.querySelectorAll('.suggestion-item');
+            const activeSuggestion = suggestionsList.querySelector('.suggestion-item.active');
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (activeSuggestion) {
+                    activeSuggestion.classList.remove('active');
+                    const next = activeSuggestion.nextElementSibling;
+                    if (next) {
+                        next.classList.add('active');
+                    }
+                } else if (suggestions.length > 0) {
+                    suggestions[0].classList.add('active');
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (activeSuggestion) {
+                    activeSuggestion.classList.remove('active');
+                    const prev = activeSuggestion.previousElementSibling;
+                    if (prev) {
+                        prev.classList.add('active');
+                    }
+                }
+            } else if (e.key === 'Enter' && activeSuggestion) {
+                e.preventDefault();
+                const link = activeSuggestion.querySelector('a');
+                if (link) {
+                    window.location.href = link.href;
+                }
+            } else if (e.key === 'Escape') {
+                searchSuggestions.classList.add('hidden');
+            }
+        });
+    }
+
+    async function fetchSuggestions(query) {
+        try {
+            const response = await fetch(`api/search_suggestions.php?q=${encodeURIComponent(query)}&limit=5`);
+            const suggestions = await response.json();
+            
+            if (suggestions.length === 0) {
+                searchSuggestions.classList.add('hidden');
+                return;
+            }
+            
+            suggestionsList.innerHTML = suggestions.map(suggestion => {
+                if (suggestion.type === 'product') {
+                    return `
+                        <div class="suggestion-item flex items-center p-3 hover:bg-gray-50 cursor-pointer">
+                            <img src="${suggestion.image}" alt="${suggestion.title}" 
+                                 class="w-10 h-10 object-cover rounded-lg mr-3"
+                                 onerror="this.src='assets/images/placeholder.png'">
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-gray-900 truncate">${suggestion.title}</div>
+                                <div class="text-sm text-gray-500">${suggestion.subtitle} • KSh ${suggestion.price}</div>
+                            </div>
+                            <a href="${suggestion.url}" class="hidden"></a>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="suggestion-item flex items-center p-3 hover:bg-gray-50 cursor-pointer">
+                            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mr-3">
+                                <i data-feather="tag" class="w-5 h-5 text-primary-600"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-gray-900 truncate">${suggestion.title}</div>
+                                <div class="text-sm text-gray-500">${suggestion.subtitle}</div>
+                            </div>
+                            <a href="${suggestion.url}" class="hidden"></a>
+                        </div>
+                    `;
+                }
+            }).join('');
+            
+            // Add click handlers
+            suggestionsList.querySelectorAll('.suggestion-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const link = this.querySelector('a');
+                    if (link) {
+                        window.location.href = link.href;
+                    }
+                });
+            });
+            
+            searchSuggestions.classList.remove('hidden');
+            feather.replace();
+            
+        } catch (error) {
+            console.error('Error fetching suggestions:', error);
+            searchSuggestions.classList.add('hidden');
+        }
+    }
 
     // Initialize Feather icons
     feather.replace();

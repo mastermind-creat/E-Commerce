@@ -6,6 +6,7 @@ error_reporting(E_ALL);
 
 require_once __DIR__ . '/../includes/db.php';
 include __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/discount_functions.php';
 
 // Set page title
 $pageTitle = 'Home';
@@ -151,8 +152,20 @@ include __DIR__ . '/../includes/header.php';
                                         <?= htmlspecialchars(substr($product['description'] ?? '', 0, 180)) ?><?= strlen($product['description'] ?? '') > 180 ? '...' : '' ?>
                                     </p>
                                     <div class="flex items-center gap-4 mb-2">
+                                        <?php
+                                        $priceInfo = getEffectivePrice($product);
+                                        if ($priceInfo['is_discounted']):
+                                        ?>
+                                        <div class="flex flex-col">
+                                            <div class="text-2xl font-bold text-green-400">KSh
+                                                <?= number_format($priceInfo['discounted_price'], 2) ?></div>
+                                            <div class="text-lg text-white/70 line-through">KSh
+                                                <?= number_format($priceInfo['original_price'], 2) ?></div>
+                                        </div>
+                                        <?php else: ?>
                                         <div class="text-2xl font-bold">KSh
                                             <?= number_format((float)($product['price'] ?? 0), 2) ?></div>
+                                        <?php endif; ?>
                                         <?php
                                             $pid = $product['id'];
                                             $avg = isset($ratings[$pid]) && $ratings[$pid]['avg_rating'] !== null ? round($ratings[$pid]['avg_rating'], 1) : null;
@@ -265,6 +278,14 @@ include __DIR__ . '/../includes/header.php';
                     class="group bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden">
                     <a href="product.php?id=<?= $product['id'] ?>" class="block">
                         <div class="relative overflow-hidden">
+                            <?php
+                            $priceInfo = getEffectivePrice($product);
+                            ?>
+                            <?php if ($priceInfo['is_discounted']): ?>
+                            <div class="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg animate-pulse z-10">
+                                -<?= number_format($priceInfo['savings_percentage'], 0) ?>%
+                            </div>
+                            <?php endif; ?>
                             <img src="<?= $product['image_url'] ? 'assets/products/' . htmlspecialchars($product['image_url']) : 'assets/images/placeholder.png' ?>"
                                 alt="<?= htmlspecialchars($product['name']) ?>"
                                 class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
@@ -283,8 +304,19 @@ include __DIR__ . '/../includes/header.php';
                             <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">
                                 <?= htmlspecialchars($product['name']) ?></h3>
                             <div class="flex items-center justify-between">
+                                <?php
+                                if ($priceInfo['is_discounted']):
+                                ?>
+                                <div class="flex flex-col">
+                                    <span class="text-2xl font-bold text-green-600">KSh
+                                        <?= number_format($priceInfo['discounted_price'], 2) ?></span>
+                                    <span class="text-lg text-gray-500 line-through">KSh
+                                        <?= number_format($priceInfo['original_price'], 2) ?></span>
+                                </div>
+                                <?php else: ?>
                                 <span class="text-2xl font-bold text-gray-900">KSh
                                     <?= number_format($product['price'], 2) ?></span>
+                                <?php endif; ?>
                                 <div class="flex items-center text-yellow-400">
                                     <?php
                                         $pid = $product['id'];

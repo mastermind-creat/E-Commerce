@@ -25,21 +25,44 @@ if (isset($_POST['section']) && $_POST['section'] == 'hero' && isset($_POST['act
         $image_filename = '';
         if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
             $upload_dir = __DIR__ . '/../assets/';
-            // Check if directory exists, create if not (with error handling)
-            if (!is_dir($upload_dir)) {
-                if (!mkdir($upload_dir, 0777, true)) {
-                    $message = 'Error: Unable to create assets directory. Check permissions.';
-                    goto end_processing; // Skip further processing on failure
+            
+            // Validate image file
+            $fileType = $_FILES['image']['type'];
+            $fileExtension = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+            
+            // Allowed image types
+            $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff', 'image/svg+xml'];
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'];
+            
+            if (in_array($fileType, $allowedTypes) && in_array($fileExtension, $allowedExtensions)) {
+                // Additional validation using getimagesize for raster images
+                if (in_array($fileExtension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff'])) {
+                    $check = getimagesize($_FILES['image']['tmp_name']);
+                    if ($check === false) {
+                        $message = 'Error: Invalid image file. Please upload a valid image.';
+                        goto end_processing;
+                    }
                 }
-            }
-            // Ensure directory is writable
-            if (!is_writable($upload_dir)) {
-                $message = 'Error: Assets directory is not writable. Check permissions.';
-                goto end_processing;
-            }
-            $image_filename = time() . '_' . basename($_FILES['image']['name']);
-            if (!move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $image_filename)) {
-                $message = 'Error: Failed to move uploaded file. Check directory permissions.';
+                
+                // Check if directory exists, create if not (with error handling)
+                if (!is_dir($upload_dir)) {
+                    if (!mkdir($upload_dir, 0777, true)) {
+                        $message = 'Error: Unable to create assets directory. Check permissions.';
+                        goto end_processing; // Skip further processing on failure
+                    }
+                }
+                // Ensure directory is writable
+                if (!is_writable($upload_dir)) {
+                    $message = 'Error: Assets directory is not writable. Check permissions.';
+                    goto end_processing;
+                }
+                $image_filename = time() . '_' . basename($_FILES['image']['name']);
+                if (!move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $image_filename)) {
+                    $message = 'Error: Failed to move uploaded file. Check directory permissions.';
+                    goto end_processing;
+                }
+            } else {
+                $message = 'Error: Invalid file type. Please upload a valid image (JPG, JPEG, PNG, GIF, WebP, BMP, TIFF, SVG).';
                 goto end_processing;
             }
         } elseif ($_POST['action'] == 'edit') {
@@ -177,7 +200,7 @@ $promo_tiles = $pdo->query("SELECT * FROM promo_tiles ORDER BY order_num ASC")->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-medium mb-1">Image</label>
-                            <input type="file" name="image" accept="image/*" class="w-full p-2 border rounded">
+                            <input type="file" name="image" accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.svg" class="w-full p-2 border rounded">
                             <?php if (!empty($current_slide['image_path'])): ?>
                             <p class="text-sm text-gray-500 mt-1">Current:
                                 <?= htmlspecialchars($current_slide['image_path']) ?></p>

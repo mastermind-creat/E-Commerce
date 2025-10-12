@@ -16,25 +16,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($_FILES['settings']['name'][$key]) && $_FILES['settings']['error'][$key] === UPLOAD_ERR_OK) {
                 $file = $_FILES['settings']['tmp_name'][$key];
                 $filename = $_FILES['settings']['name'][$key];
+                $fileType = $_FILES['settings']['type'][$key];
+                $fileExtension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
                 
-                // Generate safe filename
-                $ext = pathinfo($filename, PATHINFO_EXTENSION);
-                $safeFilename = uniqid() . '_' . time() . '.' . $ext;
+                // Allowed image types
+                $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff', 'image/svg+xml'];
+                $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'];
                 
-                // Determine upload directory based on setting type
-                $uploadDir = __DIR__ . '/../public/assets/';
-                if (strpos($key, 'logo') !== false) {
-                    $uploadDir .= 'images/';
-                }
-                
-                // Create directory if it doesn't exist
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
-                
-                // Move uploaded file
-                if (move_uploaded_file($file, $uploadDir . $safeFilename)) {
-                    $settings[$key] = 'assets/' . basename($uploadDir) . '/' . $safeFilename;
+                // Validate file type and extension
+                if (in_array($fileType, $allowedTypes) && in_array($fileExtension, $allowedExtensions)) {
+                    // Additional validation using getimagesize for raster images
+                    if (in_array($fileExtension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff'])) {
+                        $check = getimagesize($file);
+                        if ($check === false) {
+                            $settings[$key] = trim($value); // Keep existing value if validation fails
+                            continue;
+                        }
+                    }
+                    
+                    // Generate safe filename
+                    $safeFilename = uniqid() . '_' . time() . '.' . $fileExtension;
+                    
+                    // Determine upload directory based on setting type
+                    $uploadDir = __DIR__ . '/../public/assets/';
+                    if (strpos($key, 'logo') !== false) {
+                        $uploadDir .= 'images/';
+                    }
+                    
+                    // Create directory if it doesn't exist
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    
+                    // Move uploaded file
+                    if (move_uploaded_file($file, $uploadDir . $safeFilename)) {
+                        $settings[$key] = 'assets/' . basename($uploadDir) . '/' . $safeFilename;
+                    } else {
+                        $settings[$key] = trim($value); // Keep existing value if upload fails
+                    }
+                } else {
+                    $settings[$key] = trim($value); // Keep existing value if file type not allowed
                 }
             } else {
                 $settings[$key] = trim($value);
@@ -316,7 +337,7 @@ include __DIR__ . '/header.php';
                                                         <input type="file"
                                                             name="settings[<?= htmlspecialchars($setting['key']) ?>]"
                                                             id="<?= htmlspecialchars($setting['key']) ?>"
-                                                            accept="image/*"
+                                                            accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.svg"
                                                             class="file-input block w-full rounded-lg border border-gray-200 text-sm text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                                     </div>
                                                 </div>

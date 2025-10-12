@@ -17,12 +17,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $category_id = $_POST['category_id'];
     $status      = $_POST['status'];
     $variants    = $_POST['variants'] ?? [];
+    
+    // Discount fields
+    $discount_percentage = $_POST['discount_percentage'] ?? 0;
+    $discount_start_date = $_POST['discount_start_date'] ?: null;
+    $discount_end_date = $_POST['discount_end_date'] ?: null;
+    $is_discounted = ($discount_percentage > 0) ? 1 : 0;
 
     try {
         // Insert product
-        $stmt = $pdo->prepare("INSERT INTO products (category_id, name, sku, description, price, stock, status) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$category_id, $name, $sku, $description, $price, $stock, $status]);
+        $stmt = $pdo->prepare("INSERT INTO products (category_id, name, sku, description, price, stock, status, discount_percentage, discount_start_date, discount_end_date, is_discounted) 
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$category_id, $name, $sku, $description, $price, $stock, $status, $discount_percentage, $discount_start_date, $discount_end_date, $is_discounted]);
         $product_id = $pdo->lastInsertId();
 
         // If SKU not provided, auto-generate one based on product ID to ensure uniqueness
@@ -57,22 +63,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Handle main product images
         if (!empty($_FILES['images']['name'][0])) {
-            $uploadDir = "../public/assets/products/";
-            foreach ($_FILES['images']['tmp_name'] as $key => $tmp_name) {
-                $fileName = uniqid() . "_" . basename($_FILES['images']['name'][$key]);
-                $targetFile = $uploadDir . $fileName;
+            $uploadDir = realpath(__DIR__ . '/../public/assets/products/') . '/';
+            
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
 
-                $check = getimagesize($tmp_name);
-                if ($check !== false) {
-                    if (move_uploaded_file($tmp_name, $targetFile)) {
-                        $stmtImg = $pdo->prepare("INSERT INTO product_images (product_id, image_url) VALUES (?, ?)");
-                        $stmtImg->execute([$product_id, $fileName]);
+            if (!is_writable($uploadDir)) {
+                $error = "Upload directory not writable: " . htmlspecialchars($uploadDir);
+            } else {
+                $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff', 'image/svg+xml'];
+                $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'];
+                
+                $uploadedCount = 0;
+                $totalFiles = count($_FILES['images']['name']);
+                
+                for ($key = 0; $key < $totalFiles; $key++) {
+                    if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
+                        $originalName = $_FILES['images']['name'][$key];
+                        $tmpName = $_FILES['images']['tmp_name'][$key];
+                        $fileType = $_FILES['images']['type'][$key];
+                        $fileExtension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+                        if (in_array($fileType, $allowedTypes) && in_array($fileExtension, $allowedExtensions)) {
+                            $fileName = uniqid('prod_', true) . '.' . $fileExtension;
+                            $targetFile = $uploadDir . $fileName;
+
+                            if (move_uploaded_file($tmpName, $targetFile)) {
+                                $stmtImg = $pdo->prepare("INSERT INTO product_images (product_id, image_url) VALUES (?, ?)");
+                                $stmtImg->execute([$product_id, $fileName]);
+                                $uploadedCount++;
+                            } else {
+                                error_log("Failed to move uploaded file: $originalName → $targetFile");
+                            }
+                        } else {
+                            error_log("Invalid file: $originalName ($fileType)");
+                        }
+                    } else {
+                        error_log("Upload error code: " . $_FILES['images']['error'][$key]);
                     }
                 }
+
+                $success = "Product added successfully! Uploaded $uploadedCount of $totalFiles images.";
             }
+        } else {
+            $success = "Product added successfully! (No images uploaded)";
         }
 
-        $success = "✅ Product added successfully!";
     } catch (Exception $e) {
         $error = "❌ Error: " . $e->getMessage();
     }
@@ -130,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block mb-1 font-medium">Price (KSh)</label>
-                        <input type="number" step="0.01" name="price"
+                        <input type="number" step="0.01" name="price" id="price"
                             class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                             required>
                     </div>
@@ -139,6 +176,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="number" name="stock"
                             class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                             required>
+                    </div>
+                </div>
+
+                <!-- Discount Section (Optional) -->
+                <div class="mb-6 p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border border-orange-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <i data-feather="percent" class="w-5 h-5 mr-2 text-orange-600"></i>
+                        Discount Settings <span class="text-sm font-normal text-gray-600 ml-2">(Optional)</span>
+                    </h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block mb-1 font-medium text-gray-700">Discount Percentage</label>
+                            <input type="number" step="0.01" min="0" max="100" name="discount_percentage"
+                                id="discount_percentage"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                                placeholder="0.00" onchange="calculateDiscountedPrice()">
+                            <small class="text-gray-500">Enter percentage (0-100) - Leave empty for no discount</small>
+                        </div>
+                        <div>
+                            <label class="block mb-1 font-medium text-gray-700">Start Date</label>
+                            <input type="datetime-local" name="discount_start_date" id="discount_start_date"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
+                            <small class="text-gray-500">Optional - Leave empty for immediate start</small>
+                        </div>
+                        <div>
+                            <label class="block mb-1 font-medium text-gray-700">End Date</label>
+                            <input type="datetime-local" name="discount_end_date" id="discount_end_date"
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
+                            <small class="text-gray-500">Optional - Leave empty for no end date</small>
+                        </div>
+                    </div>
+
+                    <!-- Price Preview -->
+                    <div id="price-preview" class="mt-4 p-3 bg-white rounded-lg border border-orange-200 hidden">
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-600">Original Price:</span>
+                            <span id="original-price" class="text-lg font-semibold text-gray-800"></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-600">Discounted Price:</span>
+                            <span id="discounted-price" class="text-xl font-bold text-green-600"></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-600">You Save:</span>
+                            <span id="savings" class="text-lg font-semibold text-red-600"></span>
+                        </div>
                     </div>
                 </div>
 
@@ -172,9 +256,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <div class="mb-4">
                     <label class="block mb-1 font-medium">Upload Product Images</label>
-                    <input type="file" name="images[]" multiple class="w-full border rounded-lg px-4 py-2"
-                        onchange="previewImages(event)">
-                    <small class="text-gray-500">You can select multiple images</small>
+                    <input type="file" name="images[]" multiple
+                        accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.svg"
+                        class="w-full border rounded-lg px-4 py-2" onchange="previewImages(event)">
+                    <small class="text-gray-500">You can select multiple images (JPG, JPEG, PNG, GIF, WebP, BMP, TIFF,
+                        SVG)</small>
                     <div id="image-previews" class="mt-3 grid grid-cols-3 gap-2"></div>
                 </div>
 
@@ -224,6 +310,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             reader.readAsDataURL(file);
         });
     }
+
+    function calculateDiscountedPrice() {
+        const price = parseFloat(document.getElementById('price').value) || 0;
+        const discountPercentage = parseFloat(document.getElementById('discount_percentage').value) || 0;
+        const pricePreview = document.getElementById('price-preview');
+
+        if (price > 0 && discountPercentage > 0) {
+            const discountAmount = (price * discountPercentage) / 100;
+            const discountedPrice = price - discountAmount;
+
+            document.getElementById('original-price').textContent = 'KSh ' + price.toFixed(2);
+            document.getElementById('discounted-price').textContent = 'KSh ' + discountedPrice.toFixed(2);
+            document.getElementById('savings').textContent = 'KSh ' + discountAmount.toFixed(2);
+
+            pricePreview.classList.remove('hidden');
+        } else {
+            pricePreview.classList.add('hidden');
+        }
+    }
+
+    // Initialize Feather icons
+    feather.replace();
     </script>
 </body>
 
