@@ -328,6 +328,27 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                                 </div>
                                 <span class="font-medium">My Reviews</span>
                             </a>
+                            <a href="address_book.php"
+                                class="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50/80 hover:text-indigo-700 transition-all duration-300 mx-2 rounded-xl">
+                                <div class="w-8 h-8 rounded-lg bg-indigo-100 group-hover:bg-indigo-200 flex items-center justify-center mr-3 transition-colors duration-300">
+                                    <i data-feather="map-pin" class="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <span class="font-medium">Address Book</span>
+                            </a>
+                            <a href="loyalty_points.php"
+                                class="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-purple-50/80 hover:text-purple-700 transition-all duration-300 mx-2 rounded-xl">
+                                <div class="w-8 h-8 rounded-lg bg-purple-100 group-hover:bg-purple-200 flex items-center justify-center mr-3 transition-colors duration-300">
+                                    <i data-feather="award" class="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <span class="font-medium">Loyalty Points</span>
+                            </a>
+                            <a href="returns.php"
+                                class="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50/80 hover:text-orange-700 transition-all duration-300 mx-2 rounded-xl">
+                                <div class="w-8 h-8 rounded-lg bg-orange-100 group-hover:bg-orange-200 flex items-center justify-center mr-3 transition-colors duration-300">
+                                    <i data-feather="rotate-ccw" class="w-4 h-4 text-orange-600 group-hover:scale-110 transition-transform duration-300"></i>
+                                </div>
+                                <span class="font-medium">Returns & Refunds</span>
+                            </a>
                             <?php endif; ?>
                             <hr class="my-2 border-gray-200/50 mx-4">
                             <a href="logout.php"

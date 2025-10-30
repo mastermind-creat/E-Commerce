@@ -6,6 +6,7 @@ error_reporting(E_ALL);
 
 session_start();
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/loyalty_functions.php';
 
 // Set page title
 $pageTitle = 'Checkout';
@@ -141,17 +142,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
             
+            // Award loyalty points for purchase
+            if ($isLoggedIn) {
+                $points = calculatePurchasePoints($total);
+                if ($points > 0) {
+                    awardLoyaltyPoints($pdo, $_SESSION['user_id'], $points, "Purchase bonus for order #$orderId", 'purchase', $orderId, null, false);
+                }
+                
+                // Complete referral if this is first purchase
+                completeReferral($pdo, $_SESSION['user_id'], false);
+            }
+            
             $pdo->commit();
             
             // Clear cart
             unset($_SESSION['cart']);
             
-            // Redirect to success page
-            header("Location: order_success.php?order_id=" . $orderId);
+            // Redirect based on payment method
+            if ($paymentMethod === 'mpesa') {
+                // Redirect to M-Pesa payment page
+                header("Location: mpesa_payment.php?order_id=" . $orderId);
+            } else {
+                // Redirect to success page for other payment methods
+                header("Location: order_success.php?order_id=" . $orderId);
+            }
             exit;
             
         } catch (Exception $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             $error = "Checkout failed: " . $e->getMessage();
         }
     }
@@ -288,7 +308,7 @@ include __DIR__ . '/../includes/header.php';
                                         <i data-feather="smartphone" class="w-5 h-5 mr-2"></i>
                                         <span class="font-medium">M-Pesa</span>
                                     </div>
-                                    <p class="text-sm text-gray-600">Pay via M-Pesa (Coming Soon)</p>
+                                    <p class="text-sm text-gray-600">Pay securely via M-Pesa</p>
                                 </div>
                             </label>
 

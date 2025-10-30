@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/loyalty_functions.php';
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
@@ -69,7 +70,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $canReview) {
                 // Create new review
                 $stmt = $pdo->prepare("INSERT INTO reviews (user_id, product_id, rating, comment, created_at) VALUES (?, ?, ?, ?, NOW())");
                 $stmt->execute([$userId, $productId, $rating, $comment]);
-                $success = "Review submitted successfully!";
+                
+                // Award loyalty points for review
+                awardReviewPoints($pdo, $userId, $productId);
+                
+                $success = "Review submitted successfully! You earned 25 loyalty points!";
             }
 
             $redirectUrl = $orderId ? "orders.php" : "product.php?id=" . $productId;

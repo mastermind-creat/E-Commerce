@@ -70,6 +70,12 @@ $pendingCount = $pendingStmt->fetch(PDO::FETCH_ASSOC)['pending_count'] ?? 0;
             <i data-feather="users" class="w-5 h-5 text-gray-600"></i>
             <span class="ml-2">Customers</span>
         </a>
+        <a href="returns_management.php" aria-label="Returns Management"
+            class="group flex items-center px-4 py-2 rounded-lg transition-all duration-200 transform hover:translate-x-1 hover:shadow-sm
+            <?php echo basename($_SERVER['PHP_SELF']) == 'returns_management.php' ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 font-medium border-l-4 border-blue-500' : 'hover:bg-gray-100 text-gray-700'; ?>">
+            <i data-feather="rotate-ccw" class="w-5 h-5 text-gray-600"></i>
+            <span class="ml-2">Returns & Refunds</span>
+        </a>
         <a href="admin_hero.php" aria-label="Hero Manager"
             class="group flex items-center px-4 py-2 rounded-lg transition-all duration-200 transform hover:translate-x-1 hover:shadow-sm
             <?php echo basename($_SERVER['PHP_SELF']) == 'admin_hero.php' ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 font-medium border-l-4 border-blue-500' : 'hover:bg-gray-100 text-gray-700'; ?>">

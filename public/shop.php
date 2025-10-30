@@ -79,6 +79,32 @@ $countStmt->execute($params);
 $totalProducts = $countStmt->fetchColumn();
 $totalPages = ceil($totalProducts / $perPage);
 
+// Get discounted products for advertisement carousel
+try {
+    $discountedProductsQuery = "
+        SELECT p.*, c.name as category_name, c.slug as category_slug,
+            p.discount_percentage, p.discount_start_date, p.discount_end_date, p.is_discounted,
+            COALESCE(
+                (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id AND pi.is_primary = 1 LIMIT 1),
+                (SELECT pi2.image_url FROM product_images pi2 WHERE pi2.product_id = p.id LIMIT 1)
+            ) AS image_url
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE p.status = 'active' 
+        AND p.is_discounted = 1 
+        AND p.discount_percentage > 0
+        AND (p.discount_start_date IS NULL OR p.discount_start_date <= NOW())
+        AND (p.discount_end_date IS NULL OR p.discount_end_date >= NOW())
+        ORDER BY p.discount_percentage DESC
+        LIMIT 8
+    ";
+    $discountedStmt = $pdo->prepare($discountedProductsQuery);
+    $discountedStmt->execute();
+    $discountedProducts = $discountedStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $discountedProducts = [];
+}
+
 // Get products with pagination
 $offset = ($page - 1) * $perPage;
 $productsQuery = "
@@ -260,6 +286,82 @@ include __DIR__ . '/../includes/header.php';
             grid-template-columns: repeat(5, 1fr);
         }
     }
+
+    /* Advertisement Carousel Animations */
+    @keyframes slideInFromRight {
+        from {
+            opacity: 0;
+            transform: translateX(100px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes slideInFromLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-100px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes pulse-glow {
+        0%, 100% {
+            box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+        }
+        50% {
+            box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
+        }
+    }
+
+    .carousel-slide {
+        animation: slideInFromRight 0.8s ease-out;
+    }
+
+    .savings-highlight {
+        animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    /* Enhanced discount badge animation */
+    @keyframes bounce-in {
+        0% {
+            transform: scale(0) rotate(0deg);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.2) rotate(180deg);
+            opacity: 0.8;
+        }
+        100% {
+            transform: scale(1) rotate(360deg);
+            opacity: 1;
+        }
+    }
+
+    .discount-badge {
+        animation: bounce-in 1s ease-out;
+    }
+
+    /* Urgency text animation */
+    @keyframes urgent-pulse {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.7;
+            transform: scale(1.05);
+        }
+    }
+
+    .urgency-text {
+        animation: urgent-pulse 1.5s ease-in-out infinite;
+    }
 </style>
 
 <main class="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100">
@@ -298,6 +400,149 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
     </div>
+
+    <!-- Advertisement Carousel Section -->
+    <?php if (!empty($discountedProducts)): ?>
+    <div class="bg-gradient-to-r from-red-50 via-orange-50 to-yellow-50 py-12 border-b border-orange-200/30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-8">
+                <div class="flex items-center justify-center mb-4">
+                    <div class="w-12 h-12 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-xl mr-4 animate-pulse">
+                        <i data-feather="zap" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
+                            🔥 Limited Time Offers
+                        </h2>
+                        <p class="text-lg text-gray-600 mt-2">Don't miss out on these amazing deals!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carousel Container -->
+            <div class="relative">
+                <div id="advertisementCarousel" class="overflow-hidden rounded-3xl shadow-2xl">
+                    <div class="flex transition-transform duration-500 ease-in-out" id="carouselTrack">
+                        <?php foreach ($discountedProducts as $index => $product): ?>
+                        <?php
+                        $priceInfo = getEffectivePrice($product);
+                        $savingsAmount = $priceInfo['original_price'] - $priceInfo['discounted_price'];
+                        ?>
+                        <div class="w-full flex-shrink-0 carousel-slide">
+                            <div class="bg-gradient-to-br from-white via-orange-50 to-red-50 p-8 lg:p-12">
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                                    <!-- Product Image -->
+                                    <div class="relative">
+                                        <div class="relative overflow-hidden rounded-2xl shadow-2xl">
+                                            <?php
+                                            $imgUrl = product_image_url($product['image_url'] ?? null);
+                                            ?>
+                                            <img src="<?= htmlspecialchars($imgUrl) ?>" 
+                                                 alt="<?= htmlspecialchars($product['name']) ?>"
+                                                 class="w-full h-64 lg:h-80 object-cover transform hover:scale-105 transition-transform duration-500"
+                                                 onerror="this.src='assets/images/placeholder.png'">
+                                            
+                                            <!-- Discount Badge -->
+                                            <div class="absolute top-4 left-4 bg-gradient-to-r from-red-500 to-orange-500 text-white text-lg font-bold px-4 py-2 rounded-full shadow-xl animate-bounce discount-badge">
+                                                -<?= number_format($priceInfo['savings_percentage'], 0) ?>% OFF
+                                            </div>
+                                            
+                                            <!-- Savings Amount Badge -->
+                                            <div class="absolute top-4 right-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-bold px-3 py-2 rounded-full shadow-xl">
+                                                Save KSh <?= number_format($savingsAmount, 0) ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Product Details -->
+                                    <div class="text-center lg:text-left">
+                                        <div class="inline-block bg-orange-100 text-orange-800 text-sm font-semibold px-4 py-2 rounded-full mb-4">
+                                            <?= htmlspecialchars($product['category_name'] ?? 'Special Offer') ?>
+                                        </div>
+                                        
+                                        <h3 class="text-3xl lg:text-4xl font-bold text-gray-900 mb-4 leading-tight">
+                                            <?= htmlspecialchars($product['name']) ?>
+                                        </h3>
+                                        
+                                        <p class="text-lg text-gray-600 mb-6 line-clamp-3">
+                                            <?= htmlspecialchars(substr($product['description'], 0, 150)) ?>...
+                                        </p>
+                                        
+                                        <!-- Price Display -->
+                                        <div class="mb-8">
+                                            <div class="flex items-center justify-center lg:justify-start space-x-4 mb-4">
+                                                <span class="text-4xl lg:text-5xl font-bold text-green-600">
+                                                    KSh <?= number_format($priceInfo['discounted_price'], 2) ?>
+                                                </span>
+                                                <span class="text-2xl lg:text-3xl text-gray-400 line-through">
+                                                    KSh <?= number_format($priceInfo['original_price'], 2) ?>
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Savings Highlight -->
+                                            <div class="bg-gradient-to-r from-green-100 to-emerald-100 rounded-2xl p-4 border-2 border-green-200 savings-highlight">
+                                                <div class="flex items-center justify-center lg:justify-start space-x-2">
+                                                    <i data-feather="dollar-sign" class="w-6 h-6 text-green-600"></i>
+                                                    <span class="text-xl font-bold text-green-700">
+                                                        You Save KSh <?= number_format($savingsAmount, 2) ?>
+                                                    </span>
+                                                </div>
+                                                <p class="text-sm text-green-600 mt-1">
+                                                    That's <?= number_format($priceInfo['savings_percentage'], 1) ?>% off the original price!
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Action Buttons -->
+                                        <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                                            <a href="product.php?id=<?= $product['id'] ?>" 
+                                               class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:from-red-600 hover:to-orange-600 transform hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl flex items-center justify-center space-x-2">
+                                                <i data-feather="shopping-cart" class="w-5 h-5"></i>
+                                                <span>Shop Now</span>
+                                            </a>
+                                            
+                                            <button onclick="openQuickView(<?= $product['id'] ?>)" 
+                                                    class="bg-white border-2 border-orange-300 text-orange-600 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-orange-50 hover:border-orange-400 transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2">
+                                                <i data-feather="eye" class="w-5 h-5"></i>
+                                                <span>Quick View</span>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Urgency Message -->
+                                        <div class="mt-6 text-center lg:text-left">
+                                            <p class="text-sm text-red-600 font-semibold urgency-text">
+                                                ⏰ Limited time offer - Don't miss out!
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                
+                <!-- Carousel Navigation -->
+                <div class="flex justify-center space-x-4 mt-8">
+                    <button id="prevBtn" class="w-12 h-12 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 border border-orange-200">
+                        <i data-feather="chevron-left" class="w-6 h-6 text-orange-600"></i>
+                    </button>
+                    
+                    <div class="flex space-x-2">
+                        <?php foreach ($discountedProducts as $index => $product): ?>
+                        <button class="carousel-dot w-3 h-3 rounded-full transition-all duration-300 <?= $index === 0 ? 'bg-orange-500 scale-125' : 'bg-orange-300' ?>" 
+                                data-slide="<?= $index ?>"></button>
+                        <?php endforeach; ?>
+                    </div>
+                    
+                    <button id="nextBtn" class="w-12 h-12 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 border border-orange-200">
+                        <i data-feather="chevron-right" class="w-6 h-6 text-orange-600"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="flex flex-col lg:flex-row gap-8">
@@ -1101,6 +1346,75 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Advertisement Carousel Functionality
+let currentSlide = 0;
+const totalSlides = <?= count($discountedProducts) ?>;
+const carouselTrack = document.getElementById('carouselTrack');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const dots = document.querySelectorAll('.carousel-dot');
+
+function updateCarousel() {
+    if (carouselTrack) {
+        carouselTrack.style.transform = `translateX(-${currentSlide * 100}%)`;
+    }
+    
+    // Update dots
+    dots.forEach((dot, index) => {
+        if (index === currentSlide) {
+            dot.classList.add('bg-orange-500', 'scale-125');
+            dot.classList.remove('bg-orange-300');
+        } else {
+            dot.classList.remove('bg-orange-500', 'scale-125');
+            dot.classList.add('bg-orange-300');
+        }
+    });
+}
+
+function nextSlide() {
+    currentSlide = (currentSlide + 1) % totalSlides;
+    updateCarousel();
+}
+
+function prevSlide() {
+    currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+    updateCarousel();
+}
+
+// Event listeners for carousel
+if (prevBtn) {
+    prevBtn.addEventListener('click', prevSlide);
+}
+
+if (nextBtn) {
+    nextBtn.addEventListener('click', nextSlide);
+}
+
+// Dot navigation
+dots.forEach((dot, index) => {
+    dot.addEventListener('click', () => {
+        currentSlide = index;
+        updateCarousel();
+    });
+});
+
+// Auto-play carousel
+if (totalSlides > 1) {
+    setInterval(nextSlide, 5000); // Change slide every 5 seconds
+}
+
+// Pause auto-play on hover
+const carousel = document.getElementById('advertisementCarousel');
+if (carousel) {
+    carousel.addEventListener('mouseenter', () => {
+        // Pause auto-play (you can implement this if needed)
+    });
+    
+    carousel.addEventListener('mouseleave', () => {
+        // Resume auto-play (you can implement this if needed)
+    });
+}
 
 // Initialize Feather icons
 feather.replace();

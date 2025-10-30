@@ -6,6 +6,7 @@ error_reporting(E_ALL);
 
 session_start();
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/loyalty_functions.php';
 
 // Set page title
 $pageTitle = 'Register';
@@ -27,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
     $address = trim($_POST['address'] ?? '');
+    $referralCode = trim($_POST['referral_code'] ?? '');
     $agreeTerms = isset($_POST['agree_terms']);
 
     // Validation
@@ -62,6 +64,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_name'] = $name;
                 $_SESSION['user_email'] = $email;
                 $_SESSION['user_role'] = 'customer';
+                
+                // Initialize loyalty points
+                $stmt = $pdo->prepare("
+                    INSERT INTO loyalty_points (user_id, points, points_earned, points_redeemed, points_expired) 
+                    VALUES (?, 0, 0, 0, 0)
+                ");
+                $stmt->execute([$userId]);
+                
+                // Generate referral code for new user
+                $newReferralCode = generateReferralCode($pdo, $userId);
+                $stmt = $pdo->prepare("
+                    INSERT INTO user_referral_codes (user_id, referral_code, is_active, total_referrals, total_points_earned) 
+                    VALUES (?, ?, 1, 0, 0)
+                ");
+                $stmt->execute([$userId, $newReferralCode]);
+                
+                // Award signup bonus
+                awardSignupBonus($pdo, $userId);
+                
+                // Check for referral code
+                if (!empty($referralCode)) {
+                    checkReferralOnSignup($pdo, $userId, $referralCode);
+                }
 
                 // Redirect
             $redirect = $_GET['redirect'] ?? 'index.php';
@@ -192,6 +217,22 @@ include __DIR__ . '/../includes/header.php';
                             <i data-feather="eye" class="w-5 h-5 text-gray-400 hover:text-gray-600"></i>
                         </button>
                     </div>
+                </div>
+
+                <!-- Referral Code (Optional) -->
+                <div>
+                    <label for="referral_code" class="block text-sm font-medium text-gray-700 mb-2">Referral Code
+                        <span class="text-gray-400">(Optional)</span></label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i data-feather="gift" class="w-5 h-5 text-gray-400"></i>
+                        </div>
+                        <input type="text" id="referral_code" name="referral_code" 
+                               value="<?= htmlspecialchars($referralCode ?? '') ?>"
+                               class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                               placeholder="Enter referral code to earn bonus points">
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Get 100 bonus points when you use a valid referral code</p>
                 </div>
 
                 <!-- Terms and Conditions -->
