@@ -4,12 +4,15 @@
  * Safaricom M-Pesa STK Push Integration
  */
 
-// M-Pesa API Credentials
-define('MPESA_CONSUMER_KEY', 'xck8DVIsQpA2O32uRoNkezK5AsNhUG4cqmQE4HePRIgxALC2');
-define('MPESA_CONSUMER_SECRET', 'yOhA43rpjvKcAIyOGZytlpazek38Ay0cEGO2TAo6N9BQ9cmwPWGokTNnG0WF5Ajk');
+// Load environment variables
+require_once __DIR__ . '/load_env.php';
+
+// M-Pesa API Credentials (loaded from .env file)
+define('MPESA_CONSUMER_KEY', env('MPESA_CONSUMER_KEY', 'xck8DVIsQpA2O32uRoNkezK5AsNhUG4cqmQE4HePRIgxALC2'));
+define('MPESA_CONSUMER_SECRET', env('MPESA_CONSUMER_SECRET', 'yOhA43rpjvKcAIyOGZytlpazek38Ay0cEGO2TAo6N9BQ9cmwPWGokTNnG0WF5Ajk'));
 
 // M-Pesa Environment (sandbox or production)
-define('MPESA_ENV', 'sandbox'); // Change to 'production' for live environment
+define('MPESA_ENV', env('MPESA_ENV', 'sandbox')); // Change to 'production' for live environment
 
 // M-Pesa API URLs
 if (MPESA_ENV === 'sandbox') {
@@ -23,11 +26,11 @@ define('MPESA_AUTH_URL', MPESA_BASE_URL . '/oauth/v1/generate?grant_type=client_
 define('MPESA_STK_PUSH_URL', MPESA_BASE_URL . '/mpesa/stkpush/v1/processrequest');
 define('MPESA_STK_QUERY_URL', MPESA_BASE_URL . '/mpesa/stkpushquery/v1/query');
 
-// Business Configuration
-define('MPESA_SHORTCODE', '174379'); // Paybill/Till Number (Sandbox default)
-define('MPESA_PASSKEY', 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'); // Sandbox passkey
-define('MPESA_ACCOUNT_REFERENCE', 'E-Commerce'); // Your business name
-define('MPESA_TRANSACTION_DESC', 'Payment for Order'); // Transaction description
+// Business Configuration (loaded from .env file)
+define('MPESA_SHORTCODE', env('MPESA_SHORTCODE', '174379')); // Paybill/Till Number (Sandbox default)
+define('MPESA_PASSKEY', env('MPESA_PASSKEY', 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919')); // Sandbox passkey
+define('MPESA_ACCOUNT_REFERENCE', env('MPESA_ACCOUNT_REFERENCE', 'E-Commerce')); // Your business name
+define('MPESA_TRANSACTION_DESC', env('MPESA_TRANSACTION_DESC', 'Payment for Order')); // Transaction description
 
 // Callback URLs (Update these with your actual domain)
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';

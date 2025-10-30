@@ -49,18 +49,28 @@ Or execute in phpMyAdmin:
 ```
 
 ### 2. Configure API Credentials
-The credentials are already configured in `includes/mpesa_config.php`:
 
-```php
-define('MPESA_CONSUMER_KEY', 'xck8DVIsQpA2O32uRoNkezK5AsNhUG4cqmQE4HePRIgxALC2');
-define('MPESA_CONSUMER_SECRET', 'yOhA43rpjvKcAIyOGZytlpazek38Ay0cEGO2TAo6N9BQ9cmwPWGokTNnG0WF5Ajk');
+**🔐 Credentials are now stored in `.env` file for security!**
+
+The `.env` file is already created with your sandbox credentials. For production:
+
+1. Edit the `.env` file:
+```bash
+nano .env
 ```
 
-**Note:** These are sandbox credentials. For production:
-1. Register at https://developer.safaricom.co.ke
-2. Create a production app
-3. Update the credentials in `mpesa_config.php`
-4. Change `MPESA_ENV` from 'sandbox' to 'production'
+2. Update with your production credentials:
+```env
+MPESA_CONSUMER_KEY=your_production_key
+MPESA_CONSUMER_SECRET=your_production_secret
+MPESA_ENV=production
+MPESA_SHORTCODE=your_paybill_number
+MPESA_PASSKEY=your_production_passkey
+```
+
+3. Get production credentials from https://developer.safaricom.co.ke
+
+**See `ENV_SETUP.md` for detailed environment configuration guide.**
 
 ### 3. Configure Callback URLs
 Update the callback URLs in `includes/mpesa_config.php` to match your domain:

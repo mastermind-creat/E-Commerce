@@ -1,0 +1,29 @@
+# Environment variables - NEVER commit this file
+.env
+
+# Logs
+logs/
+*.log
+
+# Vendor dependencies
+vendor/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+cache/
+
+# User uploads (if you want to exclude them)
+# assets/products/
+# assets/uploads/
